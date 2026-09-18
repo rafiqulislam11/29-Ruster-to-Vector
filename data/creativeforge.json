@@ -7,9 +7,9 @@
       "password_hash": "admin123",
       "plan_id": "BUSINESS",
       "role": "admin",
-      "credits": 99984,
+      "credits": 99981,
       "created_at": "2026-01-01T00:00:00.000Z",
-      "updated_at": "2026-09-18T17:39:51.824Z"
+      "updated_at": "2026-09-18T18:00:41.868Z"
     },
     {
       "id": "usr_pro",
@@ -4929,6 +4929,93 @@
         },
         "processed_at": "2026-09-18T17:39:51.821Z"
       }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_vector_convert",
+      "parameters": {
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-18T18:00:41.047Z",
+      "completed_at": "2026-09-18T18:00:41.854Z",
+      "id": "proc_1789754441045_4dkw6",
+      "created_at": "2026-09-18T18:00:41.045Z",
+      "updated_at": "2026-09-18T18:00:41.854Z",
+      "metadata": {
+        "provider": "CreativeForge Vectorizer Engine (Potrace / Bezier Tracing)",
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50,
+        "threshold": 128,
+        "timestamp": "2026-09-18T18:00:41.854Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_upscaler",
+      "parameters": {
+        "resolution": "4K",
+        "sharpness": 80
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-18T18:00:41.052Z",
+      "completed_at": "2026-09-18T18:00:41.860Z",
+      "id": "proc_1789754441050_f0pb8",
+      "created_at": "2026-09-18T18:00:41.050Z",
+      "updated_at": "2026-09-18T18:00:41.860Z",
+      "metadata": {
+        "provider": "CreativeForge Local Engine (High-Precision Bicubic / Lanczos)",
+        "mode": "mock_local",
+        "resolution": "4K",
+        "scaleFactor": 2,
+        "sharpness": 80,
+        "noiseReduction": 30,
+        "processed": true,
+        "timestamp": "2026-09-18T18:00:41.860Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_fractal_glass_2",
+      "parameters": {
+        "preset": "2",
+        "refraction": 60
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-18T18:00:41.057Z",
+      "completed_at": "2026-09-18T18:00:41.865Z",
+      "id": "proc_1789754441055_a76pd",
+      "created_at": "2026-09-18T18:00:41.055Z",
+      "updated_at": "2026-09-18T18:00:41.865Z",
+      "metadata": {
+        "tool": "tool_fractal_glass_2",
+        "parameters": {
+          "preset": "2",
+          "refraction": 60
+        },
+        "processed_at": "2026-09-18T18:00:41.865Z"
+      }
     }
   ],
   "exports": [
@@ -5112,6 +5199,27 @@
       "credits_used": 1,
       "id": "usag_1789753191823_hs4w4",
       "created_at": "2026-09-18T17:39:51.823Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_vector_convert",
+      "credits_used": 1,
+      "id": "usag_1789754441857_nn3a6",
+      "created_at": "2026-09-18T18:00:41.857Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_upscaler",
+      "credits_used": 1,
+      "id": "usag_1789754441862_bk8br",
+      "created_at": "2026-09-18T18:00:41.862Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_fractal_glass_2",
+      "credits_used": 1,
+      "id": "usag_1789754441866_4wuqv",
+      "created_at": "2026-09-18T18:00:41.866Z"
     }
   ],
   "tool_configs": [
@@ -5371,6 +5479,16 @@
       "status": "success",
       "id": "back_1789753192223_gtevu",
       "created_at": "2026-09-18T17:39:52.223Z"
+    },
+    {
+      "filename": "backup_admin_manual_2026-09-18T18-00-42-270Z.json",
+      "filepath": "C:\\Users\\RAFIQULISLAM\\Desktop\\All Apps\\10- APPS GENERATE\\29-Ruster to Vector\\storage\\backups\\backup_admin_manual_2026-09-18T18-00-42-270Z.json",
+      "size_bytes": 210227,
+      "size_kb": 205.3,
+      "trigger": "admin_manual",
+      "status": "success",
+      "id": "back_1789754442272_9y69e",
+      "created_at": "2026-09-18T18:00:42.272Z"
     }
   ]
 }

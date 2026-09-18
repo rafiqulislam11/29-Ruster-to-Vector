@@ -13,6 +13,7 @@ import { GradientEngine } from './gradient-engine.js';
 import { IconSheetEngine } from './icon-sheet.js';
 import { IconPackEngine } from './icon-pack.js';
 import { PpiWriter } from '../utils/ppi-writer.js';
+import { PrintExporter } from '../utils/print-exporter.js';
 
 export class BatchProcessorEngine {
   /**
@@ -207,8 +208,12 @@ export class BatchProcessorEngine {
 
           imagesFolder.file(cleanName, buf);
 
-          if (isVector && res.svgString && svgFolder) {
-            svgFolder.file(`${res.baseName}.svg`, res.svgString);
+          if (isVector && res.svgString) {
+            if (svgFolder) svgFolder.file(`${res.baseName}.svg`, res.svgString);
+            const layeredSvg = PrintExporter.generateLayeredSvg(res.svgString, res.baseName);
+            zip.folder('layered_svg').file(`${res.baseName}_layered.svg`, layeredSvg);
+            const dxf = PrintExporter.generateDxf(res.svgString);
+            zip.folder('dxf_cad').file(`${res.baseName}.dxf`, dxf);
           }
 
           manifest.items.push({

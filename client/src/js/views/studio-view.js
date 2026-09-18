@@ -14,6 +14,9 @@ import { IconSheetEngine } from '../engines/icon-sheet.js';
 import { IconPackEngine } from '../engines/icon-pack.js';
 import { ImageUpscalerEngine } from '../engines/upscaler.js';
 import { PpiWriter } from '../utils/ppi-writer.js';
+import { PrintExporter } from '../utils/print-exporter.js';
+import { PresetsLibrary } from '../engines/presets-library.js';
+import { HotkeysManager } from '../utils/hotkeys.js';
 
 export class StudioView {
   constructor(container) {
@@ -81,6 +84,9 @@ export class StudioView {
             </button>
             <button class="btn btn-icon btn-sm" id="btn-switch-account" title="Switch Demo Account (Free/Pro/Admin)">
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </button>
+            <button class="btn btn-icon btn-sm" id="btn-show-shortcuts" title="Keyboard Shortcuts (?)" style="font-weight:700; font-size:0.82rem; color:var(--text-secondary);">
+              ⌨
             </button>
           </div>
         </header>
@@ -352,6 +358,60 @@ export class StudioView {
         toast.error('No processed asset to export yet.');
       }
     };
+
+    // Keyboard Shortcuts Button
+    const shortcutsBtn = this.container.querySelector('#btn-show-shortcuts');
+    if (shortcutsBtn) {
+      shortcutsBtn.onclick = () => ModalManager.openShortcutsModal();
+    }
+
+    // Global Hotkeys Listener
+    HotkeysManager.init({
+      onUndo: () => {
+        store.undo();
+        this.renderInspector();
+        this.updateProcessing();
+        toast.info('Undo');
+      },
+      onRedo: () => {
+        store.redo();
+        this.renderInspector();
+        this.updateProcessing();
+        toast.info('Redo');
+      },
+      onZoomIn: () => {
+        const cur = store.getState().zoom || 100;
+        store.setState({ zoom: Math.min(800, cur + 25) });
+        const valEl = this.container.querySelector('#val-zoom');
+        if (valEl) valEl.textContent = `${store.getState().zoom}%`;
+        this.updateCanvasDisplay();
+      },
+      onZoomOut: () => {
+        const cur = store.getState().zoom || 100;
+        store.setState({ zoom: Math.max(25, cur - 25) });
+        const valEl = this.container.querySelector('#val-zoom');
+        if (valEl) valEl.textContent = `${store.getState().zoom}%`;
+        this.updateCanvasDisplay();
+      },
+      onZoomReset: () => {
+        store.setState({ zoom: 100 });
+        const valEl = this.container.querySelector('#val-zoom');
+        if (valEl) valEl.textContent = '100%';
+        this.updateCanvasDisplay();
+      },
+      onQuickExport: () => {
+        if (this.processedCanvas) {
+          ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
+        }
+      },
+      onToggleBatch: () => {
+        const batchAssets = store.getState().batchAssets || [];
+        ModalManager.openBatchModal(batchAssets, store.getState().activeTool, store.getState().params);
+      },
+      onShowShortcuts: () => {
+        ModalManager.openShortcutsModal();
+      }
+    });
 
     // Switch Account
     this.container.querySelector('#btn-switch-account').onclick = () => {
@@ -699,6 +759,17 @@ export class StudioView {
           </div>
 
           <div class="control-group">
+            <div class="control-label"><span>✦ Curated Vector Presets</span></div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+              ${PresetsLibrary.vector.map(pr => `
+                <button class="btn btn-glass btn-sm" data-vec-preset="${pr.id}" style="padding:2px 7px; font-size:0.72rem;" title="${pr.desc}">
+                  ${pr.name}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="control-group">
             <div class="control-label"><span>Color Quantization</span><span class="control-value">${p.vectorColors} Colors</span></div>
             <input type="range" class="range-slider" id="param-vec-colors" min="2" max="16" value="${p.vectorColors}" />
           </div>
@@ -721,12 +792,18 @@ export class StudioView {
             </label>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:6px; margin-top:18px;">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:18px;">
             <button class="btn btn-primary btn-sm" id="btn-process-tool">
               Trace Vector
             </button>
             <button class="btn btn-secondary btn-sm" id="btn-quick-download-svg" title="Download pure SVG vector code">
               SVG Vector ↓
+            </button>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:6px;">
+            <button class="btn btn-glass btn-sm" id="btn-download-layered-svg" title="Download Layered SVG for Adobe Illustrator & Figma" style="border-color:var(--accent-secondary); color:var(--accent-secondary);">
+              Layered SVG ↓
             </button>
             <button class="btn btn-secondary btn-sm" id="btn-quick-export-300" title="Download 300 PPI Raster Preview">
               300 PPI ↓
@@ -1069,6 +1146,42 @@ export class StudioView {
         }
       };
     }
+
+    // Layered SVG Download Button (Illustrator & Figma Ready)
+    const layeredSvgBtn = panel.querySelector('#btn-download-layered-svg');
+    if (layeredSvgBtn) {
+      layeredSvgBtn.onclick = () => {
+        if (this.processedSvg) {
+          const filename = (store.getState().originalFileName || 'creativeforge').replace(/\.[^/.]+$/, '');
+          const layeredSvg = PrintExporter.generateLayeredSvg(this.processedSvg, filename);
+          const blob = new Blob([layeredSvg], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${filename}_layered.svg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          toast.success('Layered SVG Downloaded (Figma & Illustrator Groups Embedded)!');
+        } else {
+          toast.error('Please click "Trace Vector" first.');
+        }
+      };
+    }
+
+    // Curated Vector Presets Selection
+    panel.querySelectorAll('[data-vec-preset]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-vec-preset');
+        const preset = PresetsLibrary.vector.find(x => x.id === id);
+        if (preset) {
+          Object.assign(store.state.params, preset.params);
+          toast.success(`Preset Applied: ${preset.name}`);
+          this.renderInspector();
+          this.updateProcessing(true);
+        }
+      };
+    });
 
     const regenBtn = panel.querySelector('#btn-regen-palette');
     if (regenBtn) {

@@ -12,6 +12,7 @@ const processRoutes = require('./routes/process');
 const jobRoutes = require('./routes/jobs');
 const exportRoutes = require('./routes/exports');
 const adminRoutes = require('./routes/admin');
+const apiV1Routes = require('./routes/api-v1');
 const aiFactory = require('./services/ai-provider');
 const db = require('./db/database');
 
@@ -41,6 +42,7 @@ app.use('/api/process', processRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/v1', apiV1Routes);
 
 // General Public Health & Meta Endpoint
 app.get('/api/health', (req, res) => {

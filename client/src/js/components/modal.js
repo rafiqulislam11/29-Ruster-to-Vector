@@ -5,6 +5,7 @@ import { store } from '../state.js';
 import { api } from '../api.js';
 import { toast } from './toast.js';
 import { PpiWriter } from '../utils/ppi-writer.js';
+import { PrintExporter } from '../utils/print-exporter.js';
 import { BatchProcessorEngine } from '../engines/batch-processor.js';
 
 export class ModalManager {
@@ -472,7 +473,14 @@ export class ModalManager {
             <select id="export-format" style="width:100%;">
               <option value="png" selected>PNG (Lossless 300 PPI Master Print)</option>
               <option value="jpg">JPG (High-Density 300 DPI Photo)</option>
-              ${svgString || tool.includes('vector') ? '<option value="svg">SVG (Authentic Scalable Vector Paths)</option>' : ''}
+              <option value="tiff">TIFF (300 DPI CMYK / RGB Master Press Format)</option>
+              <option value="pdf">Print PDF (300 DPI Vector & Raster Document)</option>
+              ${svgString || tool.includes('vector') ? `
+                <option value="svg">SVG (Standard Scalable Vector Paths)</option>
+                <option value="svg_layered">Layered SVG (Grouped Color Layers for Figma & Illustrator)</option>
+                <option value="dxf">AutoCAD DXF (Laser Cutter & CNC Polylines)</option>
+                <option value="eps">EPS (Encapsulated PostScript 3.0)</option>
+              ` : ''}
               ${tool.includes('icon') ? '<option value="zip">ZIP (Full Multi-Size Icon Pack)</option>' : ''}
             </select>
           </div>
@@ -559,28 +567,48 @@ export class ModalManager {
       let fullFileName = `${filename}.${format}`;
       let downloadBlob = null;
 
+      // Prepare target export canvas (scaled if 2K, 4K, 8K selected)
+      let exportCanvas = canvas;
+      if (resolution !== 'original' && canvas) {
+        let scaleW = curW;
+        let scaleH = curH;
+        if (resolution === '2K') { scaleW = 2560; scaleH = Math.round(2560 * (curH / curW)); }
+        else if (resolution === '4K') { scaleW = 3840; scaleH = Math.round(3840 * (curH / curW)); }
+        else if (resolution === '8K') { scaleW = 7680; scaleH = Math.round(7680 * (curH / curW)); }
+        else if (resolution === '300PPI') { scaleW = 4500; scaleH = Math.round(4500 * (curH / curW)); }
+
+        exportCanvas = document.createElement('canvas');
+        exportCanvas.width = scaleW;
+        exportCanvas.height = scaleH;
+        const eCtx = exportCanvas.getContext('2d');
+        eCtx.imageSmoothingQuality = 'high';
+        eCtx.drawImage(canvas, 0, 0, scaleW, scaleH);
+      }
+
       if (format === 'svg' && svgString) {
         downloadBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      } else if (format === 'svg_layered' && svgString) {
+        const layered = PrintExporter.generateLayeredSvg(svgString, filename);
+        downloadBlob = new Blob([layered], { type: 'image/svg+xml;charset=utf-8' });
+        fullFileName = `${filename}_layered.svg`;
+      } else if (format === 'tiff') {
+        const tiffBytes = PrintExporter.generateTiff300Dpi(exportCanvas, true);
+        downloadBlob = new Blob([tiffBytes], { type: 'image/tiff' });
+        fullFileName = `${filename}_300dpi.tiff`;
+      } else if (format === 'pdf') {
+        const pdfStr = PrintExporter.generatePrintPdf(exportCanvas, filename);
+        downloadBlob = new Blob([pdfStr], { type: 'application/pdf' });
+        fullFileName = `${filename}_300dpi.pdf`;
+      } else if (format === 'dxf') {
+        const dxfStr = PrintExporter.generateDxf(svgString || '');
+        downloadBlob = new Blob([dxfStr], { type: 'application/dxf' });
+        fullFileName = `${filename}.dxf`;
+      } else if (format === 'eps') {
+        const epsStr = PrintExporter.generateEps(svgString || '', exportCanvas.width, exportCanvas.height);
+        downloadBlob = new Blob([epsStr], { type: 'application/postscript' });
+        fullFileName = `${filename}.eps`;
       } else {
-        // Prepare target export canvas (scaled if 2K, 4K, 8K selected)
-        let exportCanvas = canvas;
-        if (resolution !== 'original') {
-          let scaleW = curW;
-          let scaleH = curH;
-          if (resolution === '2K') { scaleW = 2560; scaleH = Math.round(2560 * (curH / curW)); }
-          else if (resolution === '4K') { scaleW = 3840; scaleH = Math.round(3840 * (curH / curW)); }
-          else if (resolution === '8K') { scaleW = 7680; scaleH = Math.round(7680 * (curH / curW)); }
-          else if (resolution === '300PPI') { scaleW = 4500; scaleH = Math.round(4500 * (curH / curW)); }
-
-          exportCanvas = document.createElement('canvas');
-          exportCanvas.width = scaleW;
-          exportCanvas.height = scaleH;
-          const eCtx = exportCanvas.getContext('2d');
-          eCtx.imageSmoothingQuality = 'high';
-          eCtx.drawImage(canvas, 0, 0, scaleW, scaleH);
-        }
-
-        // Embed 300 PPI print metadata into downloaded binary
+        // Embed 300 PPI print metadata into downloaded PNG/JPG binary
         downloadBlob = await PpiWriter.exportWithPpi(exportCanvas, format, ppi, 0.95);
       }
 
@@ -677,5 +705,59 @@ export class ModalManager {
     modalEl.querySelector('#auth-role-pro').onclick = () => setRole('pro');
     modalEl.querySelector('#auth-role-admin').onclick = () => setRole('admin');
     modalEl.querySelector('#auth-role-free').onclick = () => setRole('free');
+  }
+
+  /**
+   * Keyboard Shortcuts & Canvas Hotkeys Cheat Sheet Modal
+   */
+  static openShortcutsModal() {
+    const shortcuts = [
+      { key: 'Space + Drag', desc: 'Pan canvas freely in any direction' },
+      { key: 'Ctrl + Z', desc: 'Undo last creative tool adjustment' },
+      { key: 'Ctrl + Y  /  Ctrl+Shift+Z', desc: 'Redo previously undone adjustment' },
+      { key: 'Ctrl + E', desc: 'Open 300 PPI Multi-Format Export Dialog' },
+      { key: 'Ctrl + B', desc: 'Open 500-Image High-Speed Batch Studio' },
+      { key: '+  or  ]', desc: 'Zoom in canvas viewport (up to 800%)' },
+      { key: '-  or  [', desc: 'Zoom out canvas viewport (down to 25%)' },
+      { key: '0', desc: 'Reset zoom & fit canvas perfectly to screen' },
+      { key: '?', desc: 'Toggle this keyboard shortcuts cheat sheet' }
+    ];
+
+    const modalEl = document.createElement('div');
+    modalEl.className = 'modal-backdrop';
+    modalEl.innerHTML = `
+      <div class="modal-container" style="max-width: 520px;">
+        <div class="modal-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; border-radius:6px; background:var(--accent-gradient-glow); display:flex; align-items:center; justify-content:center; color:var(--accent-secondary); font-size:0.9rem;">
+              ⌨
+            </div>
+            <div>
+              <h3 class="modal-title">Studio Keyboard Shortcuts</h3>
+              <div style="font-size:0.7rem; color:var(--accent-secondary); font-weight:600;">PRO POWER-USER CONTROLS</div>
+            </div>
+          </div>
+          <button class="btn-icon" id="btn-close-shortcuts">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+          ${shortcuts.map(s => `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:8px;">
+              <span style="font-size:0.85rem; color:var(--text-secondary);">${s.desc}</span>
+              <kbd style="background:rgba(99,102,241,0.18); border:1px solid rgba(99,102,241,0.35); color:var(--accent-secondary); padding:3px 8px; border-radius:6px; font-family:var(--font-mono); font-size:0.78rem; font-weight:700;">${s.key}</kbd>
+            </div>
+          `).join('')}
+        </div>
+        <div class="modal-footer" style="justify-content:flex-end;">
+          <button class="btn btn-secondary btn-sm" id="btn-done-shortcuts">Got It (Esc)</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalEl);
+    const closeModal = () => modalEl.remove();
+    modalEl.querySelector('#btn-close-shortcuts').onclick = closeModal;
+    modalEl.querySelector('#btn-done-shortcuts').onclick = closeModal;
   }
 }
