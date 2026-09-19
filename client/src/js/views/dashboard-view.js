@@ -4,6 +4,7 @@
 import { store } from '../state.js';
 import { api } from '../api.js';
 import { toast } from '../components/toast.js';
+import { ModalManager } from '../components/modal.js';
 
 export class DashboardView {
   constructor(container, onOpenStudio) {
@@ -129,6 +130,10 @@ export class DashboardView {
               <button class="btn btn-glass btn-sm btn-quick-view" data-view="settings" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
                 <span style="font-size:1.2rem;">⚙️</span>
                 <span style="font-size:0.75rem; font-weight:600;">Settings</span>
+              </button>
+              <button class="btn btn-glass btn-sm" id="btn-quick-batch-bg" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px; border-color:rgba(6,182,212,0.4); color:var(--accent-secondary);">
+                <span style="font-size:1.2rem;">✂</span>
+                <span style="font-size:0.75rem; font-weight:600;">Batch BG</span>
               </button>
             </div>
           </div>
@@ -296,5 +301,11 @@ export class DashboardView {
         store.setState({ currentView: view });
       };
     });
+
+    // Batch BG Remover Quick-Launch
+    const batchBgBtn = this.container.querySelector('#btn-quick-batch-bg');
+    if (batchBgBtn) {
+      batchBgBtn.onclick = () => ModalManager.openBatchBgRemoverModal();
+    }
   }
 }

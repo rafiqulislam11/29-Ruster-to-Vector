@@ -7,6 +7,7 @@ import { toast } from './toast.js';
 import { PpiWriter } from '../utils/ppi-writer.js';
 import { PrintExporter } from '../utils/print-exporter.js';
 import { BatchProcessorEngine } from '../engines/batch-processor.js';
+import { BackgroundRemovalEngine } from '../engines/bg-removal.js';
 
 export class ModalManager {
   /**
@@ -241,6 +242,617 @@ export class ModalManager {
       };
 
       reader.readAsDataURL(firstFile);
+    };
+  }
+
+  /**
+   * ──────────────────────────────────────────────────────────────────
+   * DEDICATED 200-IMAGE BATCH BACKGROUND REMOVE / CHANGE MODAL
+   * Supports: Remove (transparent), Solid Color, Gradient, Custom Image
+   * Max: 200 images per batch
+   * ──────────────────────────────────────────────────────────────────
+   */
+  static openBatchBgRemoverModal(files = null) {
+    const modalEl = document.createElement('div');
+    modalEl.className = 'modal-backdrop';
+    modalEl.innerHTML = `
+      <div class="modal-container" style="max-width:680px; max-height:90vh; display:flex; flex-direction:column;">
+        <!-- Header -->
+        <div class="modal-header" style="flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#6366f1,#06b6d4); display:flex; align-items:center; justify-content:center; font-size:1.2rem;">✂</div>
+            <div>
+              <h3 class="modal-title">Batch Background Remove &amp; Change</h3>
+              <div style="font-size:0.7rem; color:var(--accent-secondary); font-weight:700; letter-spacing:0.5px;">UP TO 200 IMAGES — PARALLEL PROCESSING — ZIP EXPORT</div>
+            </div>
+          </div>
+          <button class="btn-icon" id="bbg-close">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="modal-body" style="overflow-y:auto; flex:1;">
+
+          <!-- Step 1: Upload Zone -->
+          <div id="bbg-upload-section">
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Step 1 — Select Images (max 200)</div>
+            <div id="bbg-dropzone" style="border:2px dashed rgba(99,102,241,0.4); border-radius:10px; padding:24px; text-align:center; cursor:pointer; background:rgba(99,102,241,0.05); transition:border-color 0.2s; margin-bottom:12px;">
+              <div style="font-size:2rem; margin-bottom:6px;">🖼️</div>
+              <div style="font-weight:700; font-size:0.95rem; margin-bottom:4px; color:var(--text-primary);">Drag &amp; Drop Images Here</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px;">JPG, PNG, WEBP — maximum 200 images per batch</div>
+              <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm" id="bbg-browse">Browse Files</button>
+                <button class="btn btn-glass btn-sm" id="bbg-demo" style="border-color:var(--accent-secondary); color:var(--accent-secondary);">⚡ Demo 200 Images</button>
+              </div>
+              <input type="file" id="bbg-file-input" multiple accept="image/jpeg,image/png,image/webp" style="display:none;" />
+            </div>
+
+            <!-- Selected files stats bar -->
+            <div id="bbg-stats-bar" style="display:none; background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:none; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-weight:700; color:var(--text-primary); font-size:0.88rem;" id="bbg-stats-count">0 images selected</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);" id="bbg-stats-size">Ready for batch background processing</div>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="bbg-clear-files" style="font-size:0.72rem; padding:3px 8px;">Clear</button>
+            </div>
+
+            <!-- Thumbnail preview strip (max 10 shown) -->
+            <div id="bbg-thumb-strip" style="display:flex; gap:6px; flex-wrap:wrap; max-height:90px; overflow:hidden; margin-bottom:4px;"></div>
+            <div id="bbg-more-label" style="font-size:0.72rem; color:var(--accent-secondary); font-weight:600; display:none; margin-bottom:12px;"></div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle); margin:16px 0;"></div>
+
+          <!-- Step 2: Background Mode -->
+          <div>
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 2 — Choose Background Action</div>
+
+            <!-- Mode Selector Pills -->
+            <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:14px;" id="bbg-mode-grid">
+              <button class="bbg-mode-btn active" data-mode="remove" style="background:rgba(99,102,241,0.2); border:2px solid var(--accent-primary); border-radius:10px; padding:10px 12px; cursor:pointer; text-align:left; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">🪄</div>
+                <div style="font-weight:700; font-size:0.82rem; color:var(--text-primary); margin-top:3px;">Remove Background</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">Transparent PNG (cutout)</div>
+              </button>
+              <button class="bbg-mode-btn" data-mode="color" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:10px; padding:10px 12px; cursor:pointer; text-align:left; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">🎨</div>
+                <div style="font-weight:700; font-size:0.82rem; color:var(--text-primary); margin-top:3px;">Solid Color BG</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">Replace with any color</div>
+              </button>
+              <button class="bbg-mode-btn" data-mode="gradient" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:10px; padding:10px 12px; cursor:pointer; text-align:left; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">🌈</div>
+                <div style="font-weight:700; font-size:0.82rem; color:var(--text-primary); margin-top:3px;">Gradient Background</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">2-color linear gradient</div>
+              </button>
+              <button class="bbg-mode-btn" data-mode="image" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:10px; padding:10px 12px; cursor:pointer; text-align:left; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">🖼️</div>
+                <div style="font-weight:700; font-size:0.82rem; color:var(--text-primary); margin-top:3px;">Custom BG Image</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">Upload your own background</div>
+              </button>
+            </div>
+
+            <!-- Mode-specific options -->
+            <div id="bbg-opts-color" style="display:none; align-items:center; gap:12px; background:var(--bg-tertiary); padding:12px; border-radius:8px; margin-bottom:12px;">
+              <label style="font-size:0.82rem; font-weight:600; white-space:nowrap;">Background Color:</label>
+              <input type="color" id="bbg-color-pick" value="#ffffff" style="width:48px; height:34px; border-radius:6px; border:none; cursor:pointer;" />
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                ${['#ffffff','#000000','#f8f9fa','#1e1b4b','#ecfdf5','#fef3c7','#fce7f3','#e0f2fe'].map(c=>`<div class="bbg-preset-color" data-color="${c}" style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;border:2px solid rgba(255,255,255,0.3);transition:transform 0.1s;" title="${c}"></div>`).join('')}
+              </div>
+            </div>
+
+            <div id="bbg-opts-gradient" style="display:none; gap:12px; align-items:center; background:var(--bg-tertiary); padding:12px; border-radius:8px; margin-bottom:12px; flex-wrap:wrap;">
+              <label style="font-size:0.82rem; font-weight:600;">Gradient:</label>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <input type="color" id="bbg-grad-a" value="#6366f1" style="width:38px; height:30px; border-radius:5px; border:none; cursor:pointer;" />
+                <span style="font-size:0.8rem; color:var(--text-muted);">→</span>
+                <input type="color" id="bbg-grad-b" value="#06b6d4" style="width:38px; height:30px; border-radius:5px; border:none; cursor:pointer;" />
+              </div>
+              <div id="bbg-grad-preview" style="flex:1; min-width:80px; height:30px; border-radius:6px; background:linear-gradient(135deg,#6366f1,#06b6d4);"></div>
+              <select id="bbg-grad-dir" style="font-size:0.78rem; padding:4px 8px;">
+                <option value="to right">→ Horizontal</option>
+                <option value="to bottom">↓ Vertical</option>
+                <option value="135deg" selected>↘ Diagonal</option>
+                <option value="to bottom right">↘ Bottom-Right</option>
+              </select>
+            </div>
+
+            <div id="bbg-opts-image" style="display:none; background:var(--bg-tertiary); padding:12px; border-radius:8px; margin-bottom:12px;">
+              <div style="font-size:0.82rem; font-weight:600; margin-bottom:8px;">Upload Background Image:</div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <button class="btn btn-secondary btn-sm" id="bbg-bg-img-btn">Choose Image</button>
+                <input type="file" id="bbg-bg-img-input" accept="image/*" style="display:none;" />
+                <span id="bbg-bg-img-name" style="font-size:0.78rem; color:var(--text-muted);">No image selected</span>
+                <div id="bbg-bg-img-preview" style="width:48px; height:36px; border-radius:5px; overflow:hidden; display:none;">
+                  <img id="bbg-bg-img-thumb" style="width:100%; height:100%; object-fit:cover;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Sensitivity -->
+            <div style="background:var(--bg-tertiary); padding:12px; border-radius:8px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <label style="font-size:0.82rem; font-weight:600;">AI Removal Sensitivity</label>
+                <span id="bbg-sens-val" style="font-size:0.82rem; font-weight:700; color:var(--accent-secondary);">70</span>
+              </div>
+              <input type="range" id="bbg-sensitivity" min="20" max="100" value="70" style="width:100%;" />
+              <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-top:2px;">
+                <span>Conservative (keeps more)</span>
+                <span>Aggressive (removes more)</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle); margin:16px 0;"></div>
+
+          <!-- Step 3: Progress Dashboard -->
+          <div id="bbg-progress-section" style="display:none;">
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 3 — Processing</div>
+
+            <!-- Stats Row -->
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
+              <div style="background:var(--bg-tertiary); border-radius:8px; padding:10px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:700; color:var(--accent-primary);" id="bbg-stat-done">0</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">Completed</div>
+              </div>
+              <div style="background:var(--bg-tertiary); border-radius:8px; padding:10px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:700; color:var(--accent-secondary);" id="bbg-stat-speed">0.0</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">img/sec</div>
+              </div>
+              <div style="background:var(--bg-tertiary); border-radius:8px; padding:10px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:700; color:var(--status-success);" id="bbg-stat-eta">–</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">ETA (sec)</div>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div style="background:var(--bg-primary); border-radius:6px; overflow:hidden; height:10px; margin-bottom:6px;">
+              <div id="bbg-prog-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#6366f1,#06b6d4); transition:width 0.15s ease-out; border-radius:6px;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">
+              <span id="bbg-prog-label">0 / 0 images</span>
+              <span id="bbg-prog-pct" style="font-weight:700; color:var(--accent-secondary);">0%</span>
+            </div>
+
+            <!-- Live log -->
+            <div id="bbg-log" style="background:rgba(0,0,0,0.35); border-radius:8px; padding:8px 12px; max-height:110px; overflow-y:auto; font-family:var(--font-mono); font-size:0.71rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
+              <div style="color:var(--accent-secondary);">[Ready] Configure options and press ⚡ Start Processing</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer" style="flex-shrink:0; justify-content:space-between;">
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" id="bbg-pause" style="display:none;">⏸ Pause</button>
+            <button class="btn btn-secondary btn-sm" id="bbg-cancel" style="display:none; color:var(--status-danger);">✕ Cancel</button>
+            <button class="btn btn-secondary btn-sm" id="bbg-close-footer">Close</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span id="bbg-file-count-badge" style="font-size:0.75rem; color:var(--text-muted); display:none;"></span>
+            <button class="btn btn-primary btn-sm" id="bbg-start" disabled style="box-shadow:0 0 14px rgba(99,102,241,0.4);">
+              ⚡ Start Batch Processing
+            </button>
+            <button class="btn btn-sm" id="bbg-download" style="display:none; background:#06b6d4; color:#000; font-weight:700;">
+              📦 Download ZIP
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalEl);
+
+    // ── Element refs ──
+    const closeModal = () => modalEl.remove();
+    modalEl.querySelector('#bbg-close').onclick = closeModal;
+    modalEl.querySelector('#bbg-close-footer').onclick = closeModal;
+
+    const dropzone      = modalEl.querySelector('#bbg-dropzone');
+    const fileInput     = modalEl.querySelector('#bbg-file-input');
+    const browseBtn     = modalEl.querySelector('#bbg-browse');
+    const demoBtn       = modalEl.querySelector('#bbg-demo');
+    const statsBar      = modalEl.querySelector('#bbg-stats-bar');
+    const statsCount    = modalEl.querySelector('#bbg-stats-count');
+    const statsSizeEl   = modalEl.querySelector('#bbg-stats-size');
+    const clearBtn      = modalEl.querySelector('#bbg-clear-files');
+    const thumbStrip    = modalEl.querySelector('#bbg-thumb-strip');
+    const moreLabel     = modalEl.querySelector('#bbg-more-label');
+    const startBtn      = modalEl.querySelector('#bbg-start');
+    const pauseBtn      = modalEl.querySelector('#bbg-pause');
+    const cancelBtn     = modalEl.querySelector('#bbg-cancel');
+    const downloadBtn   = modalEl.querySelector('#bbg-download');
+    const progressSec   = modalEl.querySelector('#bbg-progress-section');
+    const progBar       = modalEl.querySelector('#bbg-prog-bar');
+    const progLabel     = modalEl.querySelector('#bbg-prog-label');
+    const progPct       = modalEl.querySelector('#bbg-prog-pct');
+    const statDone      = modalEl.querySelector('#bbg-stat-done');
+    const statSpeed     = modalEl.querySelector('#bbg-stat-speed');
+    const statEta       = modalEl.querySelector('#bbg-stat-eta');
+    const logEl         = modalEl.querySelector('#bbg-log');
+    const sensSlider    = modalEl.querySelector('#bbg-sensitivity');
+    const sensVal       = modalEl.querySelector('#bbg-sens-val');
+    const fileBadge     = modalEl.querySelector('#bbg-file-count-badge');
+
+    const colorPick     = modalEl.querySelector('#bbg-color-pick');
+    const gradA         = modalEl.querySelector('#bbg-grad-a');
+    const gradB         = modalEl.querySelector('#bbg-grad-b');
+    const gradDir       = modalEl.querySelector('#bbg-grad-dir');
+    const gradPreview   = modalEl.querySelector('#bbg-grad-preview');
+    const bgImgBtn      = modalEl.querySelector('#bbg-bg-img-btn');
+    const bgImgInput    = modalEl.querySelector('#bbg-bg-img-input');
+    const bgImgName     = modalEl.querySelector('#bbg-bg-img-name');
+    const bgImgPreview  = modalEl.querySelector('#bbg-bg-img-preview');
+    const bgImgThumb    = modalEl.querySelector('#bbg-bg-img-thumb');
+
+    let selectedFiles = files ? [...files] : [];
+    let selectedMode = 'remove';
+    let bgImageEl = null;
+    let zipBlob = null;
+    const controller = { isPaused: false, isCancelled: false };
+
+    // ── Sensitivity slider ──
+    sensSlider.oninput = () => { sensVal.textContent = sensSlider.value; };
+
+    // ── Mode pill selection ──
+    const modeBtns = modalEl.querySelectorAll('.bbg-mode-btn');
+    const optsColor    = modalEl.querySelector('#bbg-opts-color');
+    const optsGradient = modalEl.querySelector('#bbg-opts-gradient');
+    const optsImage    = modalEl.querySelector('#bbg-opts-image');
+
+    modeBtns.forEach(btn => {
+      btn.onclick = () => {
+        modeBtns.forEach(b => {
+          b.style.background = 'var(--bg-tertiary)';
+          b.style.borderColor = 'var(--border-subtle)';
+          b.classList.remove('active');
+        });
+        btn.style.background = 'rgba(99,102,241,0.2)';
+        btn.style.borderColor = 'var(--accent-primary)';
+        btn.classList.add('active');
+        selectedMode = btn.dataset.mode;
+
+        optsColor.style.display    = selectedMode === 'color'    ? 'flex' : 'none';
+        optsGradient.style.display = selectedMode === 'gradient' ? 'flex' : 'none';
+        optsImage.style.display    = selectedMode === 'image'    ? 'block' : 'none';
+      };
+    });
+
+    // ── Color preset circles ──
+    modalEl.querySelectorAll('.bbg-preset-color').forEach(c => {
+      c.onclick = () => { colorPick.value = c.dataset.color; };
+    });
+
+    // ── Gradient live preview ──
+    const updateGradPrev = () => {
+      gradPreview.style.background = `linear-gradient(${gradDir.value},${gradA.value},${gradB.value})`;
+    };
+    gradA.oninput = updateGradPrev;
+    gradB.oninput = updateGradPrev;
+    gradDir.onchange = updateGradPrev;
+
+    // ── BG image upload ──
+    bgImgBtn.onclick = () => bgImgInput.click();
+    bgImgInput.onchange = () => {
+      const f = bgImgInput.files[0];
+      if (!f) return;
+      bgImgName.textContent = f.name;
+      const url = URL.createObjectURL(f);
+      bgImageEl = new Image();
+      bgImageEl.src = url;
+      bgImgThumb.src = url;
+      bgImgPreview.style.display = 'block';
+    };
+
+    // ── Drag & Drop ──
+    dropzone.ondragover = e => { e.preventDefault(); dropzone.style.borderColor = 'var(--accent-primary)'; };
+    dropzone.ondragleave = () => { dropzone.style.borderColor = 'rgba(99,102,241,0.4)'; };
+    dropzone.ondrop = e => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'rgba(99,102,241,0.4)';
+      const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (dropped.length) handleFiles(dropped);
+    };
+
+    // ── Browse & Demo ──
+    browseBtn.onclick = e => { e.stopPropagation(); fileInput.click(); };
+    demoBtn.onclick = e => {
+      e.stopPropagation();
+      const demo = ModalManager.generateDemo500Batch().slice(0, 200);
+      handleFiles(demo);
+      toast.success('Generated 200 demo images for batch background removal!');
+    };
+    fileInput.onchange = () => { if (fileInput.files.length) handleFiles(Array.from(fileInput.files)); };
+    dropzone.onclick = e => {
+      if (e.target.id !== 'bbg-browse' && e.target.id !== 'bbg-demo') fileInput.click();
+    };
+
+    clearBtn.onclick = () => { selectedFiles = []; renderFileList(); };
+
+    function renderFileList() {
+      thumbStrip.innerHTML = '';
+      moreLabel.style.display = 'none';
+      if (selectedFiles.length === 0) {
+        statsBar.style.display = 'none';
+        startBtn.disabled = true;
+        fileBadge.style.display = 'none';
+        return;
+      }
+
+      const totalKB = selectedFiles.reduce((s,f) => s + (f.size || 5000), 0) / 1024;
+      statsBar.style.display = 'flex';
+      statsCount.textContent = `${selectedFiles.length} image${selectedFiles.length > 1 ? 's' : ''} selected`;
+      statsSizeEl.textContent = `Total: ${totalKB.toFixed(0)} KB • Ready for background processing`;
+      startBtn.disabled = false;
+      fileBadge.style.display = 'inline';
+      fileBadge.textContent = `${selectedFiles.length} files`;
+
+      const maxThumbs = 10;
+      selectedFiles.slice(0, maxThumbs).forEach((f, i) => {
+        const thumb = document.createElement('div');
+        thumb.style.cssText = 'width:52px; height:40px; border-radius:5px; overflow:hidden; border:1px solid var(--border-subtle); background:var(--bg-tertiary); display:flex; align-items:center; justify-content:center; font-size:0.6rem; color:var(--text-muted); position:relative; flex-shrink:0;';
+
+        if ((f instanceof File || f instanceof Blob) && f.type && f.type.startsWith('image/')) {
+          const url = URL.createObjectURL(f);
+          const img = document.createElement('img');
+          img.src = url;
+          img.style.cssText = 'width:100%; height:100%; object-fit:cover;';
+          img.onload = () => URL.revokeObjectURL(url);
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = `#${i+1}`;
+        }
+        thumbStrip.appendChild(thumb);
+      });
+
+      if (selectedFiles.length > maxThumbs) {
+        moreLabel.style.display = 'block';
+        moreLabel.textContent = `+${selectedFiles.length - maxThumbs} more images queued`;
+      }
+    }
+
+    const MAX_BATCH = 200;
+    function handleFiles(f) {
+      const filtered = f.filter(x => x.type ? x.type.startsWith('image/') : true);
+      if (filtered.length > MAX_BATCH) {
+        toast.error(`Maximum ${MAX_BATCH} images allowed per batch. First ${MAX_BATCH} selected.`);
+        selectedFiles = filtered.slice(0, MAX_BATCH);
+      } else {
+        selectedFiles = filtered;
+      }
+      renderFileList();
+    }
+
+    // If files already passed, render them immediately
+    if (selectedFiles.length > 0) renderFileList();
+
+    // ── Pause / Resume ──
+    pauseBtn.onclick = () => {
+      controller.isPaused = !controller.isPaused;
+      pauseBtn.textContent = controller.isPaused ? '▶ Resume' : '⏸ Pause';
+    };
+    cancelBtn.onclick = () => { controller.isCancelled = true; };
+
+    // ── Download ──
+    downloadBtn.onclick = () => {
+      if (!zipBlob) return;
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `batch-bg-removed-${selectedFiles.length}-images.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    // ── START ──
+    startBtn.onclick = async () => {
+      if (!selectedFiles.length) return;
+      if (selectedMode === 'image' && !bgImageEl) {
+        toast.error('Please upload a background image first.');
+        return;
+      }
+
+      controller.isPaused = false;
+      controller.isCancelled = false;
+      startBtn.style.display = 'none';
+      pauseBtn.style.display = 'inline-flex';
+      cancelBtn.style.display = 'inline-flex';
+      progressSec.style.display = 'block';
+      progressSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      logEl.innerHTML = `<div style="color:var(--accent-secondary);">[Pipeline] Initializing ${selectedFiles.length}-image batch background processor...</div>`;
+
+      const sensitivity = parseInt(sensSlider.value, 10);
+      const total = selectedFiles.length;
+      let processed = 0;
+      let failed = 0;
+      const startTime = Date.now();
+
+      // Dynamic import JSZip
+      const { default: JSZipModule } = await import('jszip');
+      const zip = new JSZipModule();
+      const folder = zip.folder('bg_removed_images');
+
+      const concurrency = 4;
+      let cursor = 0;
+
+      /**
+       * Apply background action to a loaded <img> and return canvas
+       */
+      const applyBgAction = (img) => {
+        const bgMode = 'ai_photo';
+
+        // Step 1: remove background using the imported BackgroundRemovalEngine
+        let resultCanvas;
+        try {
+          resultCanvas = BackgroundRemovalEngine.process(img, {
+            mode: bgMode,
+            sensitivity,
+            feather: 3,
+            defringe: 40,
+            contiguous: true,
+            shadowPreservation: true
+          });
+        } catch (e) {
+          resultCanvas = document.createElement('canvas');
+          resultCanvas.width = img.naturalWidth || 800;
+          resultCanvas.height = img.naturalHeight || 600;
+          resultCanvas.getContext('2d').drawImage(img, 0, 0);
+        }
+
+        if (selectedMode === 'remove') {
+          // Transparent — just return as-is
+          return resultCanvas;
+        }
+
+        // Step 2: composite onto new background
+        const out = document.createElement('canvas');
+        out.width = resultCanvas.width;
+        out.height = resultCanvas.height;
+        const ctx2 = out.getContext('2d');
+
+        if (selectedMode === 'color') {
+          ctx2.fillStyle = colorPick.value;
+          ctx2.fillRect(0, 0, out.width, out.height);
+        } else if (selectedMode === 'gradient') {
+          const gr = ctx2.createLinearGradient(
+            gradDir.value === 'to right' || gradDir.value === '135deg' || gradDir.value === 'to bottom right' ? 0 : 0,
+            gradDir.value === 'to bottom' || gradDir.value === 'to bottom right' ? 0 : 0,
+            gradDir.value === 'to right' ? out.width : (gradDir.value === '135deg' || gradDir.value === 'to bottom right' ? out.width : 0),
+            gradDir.value === 'to bottom' || gradDir.value === '135deg' || gradDir.value === 'to bottom right' ? out.height : 0
+          );
+          gr.addColorStop(0, gradA.value);
+          gr.addColorStop(1, gradB.value);
+          ctx2.fillStyle = gr;
+          ctx2.fillRect(0, 0, out.width, out.height);
+        } else if (selectedMode === 'image' && bgImageEl) {
+          ctx2.drawImage(bgImageEl, 0, 0, out.width, out.height);
+        } else {
+          ctx2.fillStyle = '#ffffff';
+          ctx2.fillRect(0, 0, out.width, out.height);
+        }
+
+        // Composite cutout over background
+        ctx2.drawImage(resultCanvas, 0, 0);
+        return out;
+      };
+
+      const worker = async () => {
+        while (cursor < total) {
+          if (controller.isCancelled) break;
+          while (controller.isPaused && !controller.isCancelled) {
+            await new Promise(r => setTimeout(r, 200));
+          }
+
+          const idx = cursor++;
+          if (idx >= total) break;
+
+          const file = selectedFiles[idx];
+          const fileName = file.name || `image_${String(idx+1).padStart(3,'0')}.png`;
+
+          try {
+            // Load image
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.src = url;
+            await img.decode();
+            URL.revokeObjectURL(url);
+
+            // Process
+            const canvas = applyBgAction(img);
+
+            // Export PNG blob
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+            const buf = await blob.arrayBuffer();
+
+            const suffix = selectedMode === 'remove' ? 'transparent' : `bg_${selectedMode}`;
+            const outName = `${fileName.replace(/\.[^/.]+$/,'')}_${suffix}.png`;
+            folder.file(outName, buf);
+            processed++;
+          } catch (e) {
+            console.warn(`[BatchBG] Failed: ${fileName}`, e);
+            failed++;
+          }
+
+          // Update UI
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? ((processed / elapsed)).toFixed(1) : 0;
+          const remaining = total - processed - failed;
+          const eta = parseFloat(speed) > 0 ? Math.round(remaining / parseFloat(speed)) : 0;
+          const pct = Math.min(95, Math.round(((processed + failed) / total) * 95));
+
+          progBar.style.width = pct + '%';
+          progPct.textContent = pct + '%';
+          progLabel.textContent = `${processed + failed} / ${total} images`;
+          statDone.textContent = processed;
+          statSpeed.textContent = speed;
+          statEta.textContent = eta > 0 ? eta + 's' : '–';
+
+          const logItem = document.createElement('div');
+          logItem.textContent = `✓ [${String(processed+failed).padStart(3,'0')}/${total}] ${fileName}`;
+          logEl.appendChild(logItem);
+          if (logEl.children.length > 60) logEl.removeChild(logEl.children[0]);
+          logEl.scrollTop = logEl.scrollHeight;
+
+          await new Promise(r => setTimeout(r, 0));
+        }
+      };
+
+      // Run with pool
+      const workers = [];
+      const pool = Math.min(concurrency, total);
+      for (let w = 0; w < pool; w++) workers.push(worker());
+      await Promise.all(workers);
+
+      if (controller.isCancelled) {
+        logEl.appendChild(Object.assign(document.createElement('div'), { textContent: '[Cancelled] Batch was cancelled by user.', style: 'color:var(--status-danger);' }));
+        pauseBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        startBtn.style.display = 'inline-flex';
+        startBtn.disabled = false;
+        return;
+      }
+
+      // Build zip
+      progBar.style.width = '97%';
+      progPct.textContent = '97%';
+      const zipMsg = document.createElement('div');
+      zipMsg.textContent = '[Packaging] Building ZIP archive...';
+      zipMsg.style.color = 'var(--accent-secondary)';
+      logEl.appendChild(zipMsg);
+
+      zip.file('README.txt', [
+        '=== Batch Background Remove/Change — Creative Vector Studio ===',
+        `Mode: ${selectedMode.toUpperCase()}`,
+        `Total Processed: ${processed}`,
+        `Generated: ${new Date().toISOString()}`
+      ].join('\n'));
+
+      zipBlob = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:6} });
+
+      progBar.style.width = '100%';
+      progPct.textContent = '100%';
+      pauseBtn.style.display = 'none';
+      cancelBtn.style.display = 'none';
+      downloadBtn.style.display = 'inline-flex';
+
+      const successMsg = document.createElement('div');
+      successMsg.textContent = `✅ Done! ${processed} images processed. Click "Download ZIP" to save.`;
+      successMsg.style.color = 'var(--status-success)';
+      logEl.appendChild(successMsg);
+      logEl.scrollTop = logEl.scrollHeight;
+
+      toast.success(`Batch complete! ${processed} images background-processed. Downloading ZIP...`);
+
+      // Auto-trigger download
+      const dlUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `batch-bg-${selectedMode}-${processed}-images.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     };
   }
 
