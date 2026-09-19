@@ -99,8 +99,10 @@ export class BackgroundRemovalEngine {
     // 3. Adaptive threshold based on sensitivity
     // Higher sensitivity = keeps more foreground subject; lower sensitivity = removes more aggressively
     const sensFactor = sensitivity / 100;
-    const baseColorDistThreshold = 28 + (1 - sensFactor) * 45; // 28 to 73
-    const edgeBarrierThreshold = 18 + sensFactor * 32;          // 18 to 50
+    // FIX: Wider base threshold catches more BG colors (was 28–73, now 38–88)
+    const baseColorDistThreshold = 38 + (1 - sensFactor) * 50; // 38 to 88
+    // FIX: Reduced edge barrier floor so flood crosses soft/blurry BG edges (was 18–50, now 12–42)
+    const edgeBarrierThreshold = 12 + sensFactor * 30;          // 12 to 42
 
     // 4. Alpha mask buffer initialized to foreground (255)
     const alphaMask = new Uint8Array(totalPixels);
@@ -124,7 +126,8 @@ export class BackgroundRemovalEngine {
       alphaMask[seedIdx] = 0;
     } else {
       // Seed all 4 outer edges of the photograph
-      const borderThickness = Math.max(1, Math.min(4, Math.floor(Math.min(width, height) * 0.01)));
+      // FIX: Deeper border seeding (was 1–4px / 1%, now 2–8px / 2%) for better flood coverage
+      const borderThickness = Math.max(2, Math.min(8, Math.floor(Math.min(width, height) * 0.02)));
 
       for (let y = 0; y < height; y++) {
         for (let b = 0; b < borderThickness; b++) {
@@ -212,7 +215,8 @@ export class BackgroundRemovalEngine {
         if (alphaMask[i] !== 0) {
           const off = i * 4;
           const dist = this.minDistanceToClusters(data[off], data[off + 1], data[off + 2], bgClusters);
-          if (dist < baseColorDistThreshold * 0.75 && edgeMag[i] < 12) {
+          // FIX: Threshold increased to 0.85 (was 0.75) so more stray BG patches get removed
+          if (dist < baseColorDistThreshold * 0.85 && edgeMag[i] < 18) {
             alphaMask[i] = 0;
           }
         }
@@ -241,13 +245,15 @@ export class BackgroundRemovalEngine {
             if (hasFgNeighbor) {
               const off = idx * 4;
               const lum = (data[off] * 299 + data[off + 1] * 587 + data[off + 2] * 114) >> 10;
-              if (lum < 200) {
-                const shadowAlpha = Math.round((1 - lum / 255) * 110);
-                alphaMask[idx] = Math.max(0, Math.min(120, shadowAlpha));
+              // FIX: Reduced luminance threshold from 200→140 — only truly dark pixels kept as shadow
+              // This prevents light/gray BG pixels from being misidentified as contact shadows
+              if (lum < 140) {
+                const shadowAlpha = Math.round((1 - lum / 160) * 100);
+                alphaMask[idx] = Math.max(0, Math.min(100, shadowAlpha));
                 // Make shadow neutral
-                data[off] = Math.min(data[off], 40);
-                data[off + 1] = Math.min(data[off + 1], 40);
-                data[off + 2] = Math.min(data[off + 2], 40);
+                data[off] = Math.min(data[off], 30);
+                data[off + 1] = Math.min(data[off + 1], 30);
+                data[off + 2] = Math.min(data[off + 2], 30);
               }
             }
           }
@@ -304,7 +310,9 @@ export class BackgroundRemovalEngine {
       targetR = autoColor.r; targetG = autoColor.g; targetB = autoColor.b;
     }
 
-    const tolDist = (tolerance / 100) * 195;
+    // FIX: Increased max distance from 195→220 for color-mode removal (white/black/custom)
+    // This makes the tolerance slider more effective on near-white or near-black backgrounds
+    const tolDist = (tolerance / 100) * 220;
     const alphaMask = new Uint8Array(totalPixels);
     alphaMask.fill(255);
 
@@ -377,14 +385,15 @@ export class BackgroundRemovalEngine {
     }
 
     // Shadow preservation for studio shots
+    // FIX: Tighten luminance threshold 220→130 to stop light BG pixels being treated as shadows
     if (shadowPreservation && mode !== 'black') {
       for (let i = 0; i < totalPixels; i++) {
         if (alphaMask[i] === 0) {
           const off = i * 4;
           const lum = (data[off] * 299 + data[off + 1] * 587 + data[off + 2] * 114) >> 10;
-          if (lum < 220) {
-            const shadowAlpha = Math.round((1 - lum / 255) * 115);
-            alphaMask[i] = shadowAlpha;
+          if (lum < 130) {
+            const shadowAlpha = Math.round((1 - lum / 160) * 105);
+            alphaMask[i] = Math.min(95, shadowAlpha);
             data[off] = 0;
             data[off + 1] = 0;
             data[off + 2] = 0;
