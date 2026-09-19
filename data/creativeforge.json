@@ -7,9 +7,9 @@
       "password_hash": "admin123",
       "plan_id": "BUSINESS",
       "role": "admin",
-      "credits": 99974,
+      "credits": 99960,
       "created_at": "2026-01-01T00:00:00.000Z",
-      "updated_at": "2026-09-19T03:55:15.086Z"
+      "updated_at": "2026-09-19T05:45:10.020Z"
     },
     {
       "id": "usr_pro",
@@ -5103,6 +5103,180 @@
         },
         "processed_at": "2026-09-19T03:55:15.079Z"
       }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_vector_convert",
+      "parameters": {
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T05:36:18.684Z",
+      "completed_at": "2026-09-19T05:36:19.493Z",
+      "id": "proc_1789796178682_qyreo",
+      "created_at": "2026-09-19T05:36:18.682Z",
+      "updated_at": "2026-09-19T05:36:19.493Z",
+      "metadata": {
+        "provider": "CreativeForge Vectorizer Engine (Potrace / Bezier Tracing)",
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50,
+        "threshold": 128,
+        "timestamp": "2026-09-19T05:36:19.493Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_upscaler",
+      "parameters": {
+        "resolution": "4K",
+        "sharpness": 80
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T05:36:18.691Z",
+      "completed_at": "2026-09-19T05:36:19.503Z",
+      "id": "proc_1789796178689_kyglt",
+      "created_at": "2026-09-19T05:36:18.689Z",
+      "updated_at": "2026-09-19T05:36:19.503Z",
+      "metadata": {
+        "provider": "CreativeForge Local Engine (High-Precision Bicubic / Lanczos)",
+        "mode": "mock_local",
+        "resolution": "4K",
+        "scaleFactor": 2,
+        "sharpness": 80,
+        "noiseReduction": 30,
+        "processed": true,
+        "timestamp": "2026-09-19T05:36:19.503Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_fractal_glass_2",
+      "parameters": {
+        "preset": "2",
+        "refraction": 60
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T05:36:18.698Z",
+      "completed_at": "2026-09-19T05:36:19.510Z",
+      "id": "proc_1789796178695_nfopc",
+      "created_at": "2026-09-19T05:36:18.695Z",
+      "updated_at": "2026-09-19T05:36:19.510Z",
+      "metadata": {
+        "tool": "tool_fractal_glass_2",
+        "parameters": {
+          "preset": "2",
+          "refraction": 60
+        },
+        "processed_at": "2026-09-19T05:36:19.510Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_vector_convert",
+      "parameters": {
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T05:45:09.182Z",
+      "completed_at": "2026-09-19T05:45:10.000Z",
+      "id": "proc_1789796709180_c9iu7",
+      "created_at": "2026-09-19T05:45:09.180Z",
+      "updated_at": "2026-09-19T05:45:10.000Z",
+      "metadata": {
+        "provider": "CreativeForge Vectorizer Engine (Potrace / Bezier Tracing)",
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50,
+        "threshold": 128,
+        "timestamp": "2026-09-19T05:45:10.000Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_upscaler",
+      "parameters": {
+        "resolution": "4K",
+        "sharpness": 80
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T05:45:09.189Z",
+      "completed_at": "2026-09-19T05:45:10.008Z",
+      "id": "proc_1789796709187_dq86v",
+      "created_at": "2026-09-19T05:45:09.187Z",
+      "updated_at": "2026-09-19T05:45:10.008Z",
+      "metadata": {
+        "provider": "CreativeForge Local Engine (High-Precision Bicubic / Lanczos)",
+        "mode": "mock_local",
+        "resolution": "4K",
+        "scaleFactor": 2,
+        "sharpness": 80,
+        "noiseReduction": 30,
+        "processed": true,
+        "timestamp": "2026-09-19T05:45:10.008Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_fractal_glass_2",
+      "parameters": {
+        "preset": "2",
+        "refraction": 60
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T05:45:09.197Z",
+      "completed_at": "2026-09-19T05:45:10.015Z",
+      "id": "proc_1789796709194_mpgr1",
+      "created_at": "2026-09-19T05:45:09.194Z",
+      "updated_at": "2026-09-19T05:45:10.015Z",
+      "metadata": {
+        "tool": "tool_fractal_glass_2",
+        "parameters": {
+          "preset": "2",
+          "refraction": 60
+        },
+        "processed_at": "2026-09-19T05:45:10.015Z"
+      }
     }
   ],
   "exports": [
@@ -5328,6 +5502,48 @@
       "credits_used": 2,
       "id": "usag_1789790115083_lyuaf",
       "created_at": "2026-09-19T03:55:15.083Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_vector_convert",
+      "credits_used": 2,
+      "id": "usag_1789796179498_92dnd",
+      "created_at": "2026-09-19T05:36:19.498Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_upscaler",
+      "credits_used": 3,
+      "id": "usag_1789796179505_2z67g",
+      "created_at": "2026-09-19T05:36:19.505Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_fractal_glass_2",
+      "credits_used": 2,
+      "id": "usag_1789796179512_vm56s",
+      "created_at": "2026-09-19T05:36:19.512Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_vector_convert",
+      "credits_used": 2,
+      "id": "usag_1789796710002_c8m5d",
+      "created_at": "2026-09-19T05:45:10.002Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_upscaler",
+      "credits_used": 3,
+      "id": "usag_1789796710010_6kjwq",
+      "created_at": "2026-09-19T05:45:10.010Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_fractal_glass_2",
+      "credits_used": 2,
+      "id": "usag_1789796710018_gs4f9",
+      "created_at": "2026-09-19T05:45:10.018Z"
     }
   ],
   "tool_configs": [
@@ -5607,6 +5823,26 @@
       "status": "success",
       "id": "back_1789790115509_bj9aa",
       "created_at": "2026-09-19T03:55:15.509Z"
+    },
+    {
+      "filename": "backup_admin_manual_2026-09-19T05-36-19-948Z.json",
+      "filepath": "C:\\Users\\Rafiqul Islam\\Desktop\\10- APPS GENERATE\\29-Ruster-to-Vector-main\\29-Ruster-to-Vector-main\\storage\\backups\\backup_admin_manual_2026-09-19T05-36-19-948Z.json",
+      "size_bytes": 220153,
+      "size_kb": 215,
+      "trigger": "admin_manual",
+      "status": "success",
+      "id": "back_1789796179951_rkr06",
+      "created_at": "2026-09-19T05:36:19.951Z"
+    },
+    {
+      "filename": "backup_admin_manual_2026-09-19T05-45-10-419Z.json",
+      "filepath": "C:\\Users\\Rafiqul Islam\\Desktop\\10- APPS GENERATE\\29-Ruster-to-Vector-main\\29-Ruster-to-Vector-main\\storage\\backups\\backup_admin_manual_2026-09-19T05-45-10-419Z.json",
+      "size_bytes": 223930,
+      "size_kb": 218.7,
+      "trigger": "admin_manual",
+      "status": "success",
+      "id": "back_1789796710421_reigj",
+      "created_at": "2026-09-19T05:45:10.421Z"
     }
   ],
   "presets": [

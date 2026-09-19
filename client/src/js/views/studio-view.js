@@ -39,6 +39,53 @@ export class StudioView {
     this.viewMode = 'compare'; // 'compare' | 'canvas'
   }
 
+  toggleLeftSidebar(forceOpen = null) {
+    const sidebar = this.container.querySelector('#studio-sidebar-left');
+    const backdrop = this.container.querySelector('#studio-drawer-backdrop');
+    const rightPanel = this.container.querySelector('#studio-panel-right');
+    if (!sidebar) return;
+
+    const isOpen = forceOpen !== null ? forceOpen : !sidebar.classList.contains('open');
+    if (isOpen) {
+      sidebar.classList.add('open');
+      if (rightPanel) rightPanel.classList.remove('open');
+      if (backdrop) backdrop.classList.add('active');
+    } else {
+      sidebar.classList.remove('open');
+      if (backdrop && (!rightPanel || !rightPanel.classList.contains('open'))) {
+        backdrop.classList.remove('active');
+      }
+    }
+  }
+
+  toggleRightPanel(forceOpen = null) {
+    const rightPanel = this.container.querySelector('#studio-panel-right');
+    const backdrop = this.container.querySelector('#studio-drawer-backdrop');
+    const sidebar = this.container.querySelector('#studio-sidebar-left');
+    if (!rightPanel) return;
+
+    const isOpen = forceOpen !== null ? forceOpen : !rightPanel.classList.contains('open');
+    if (isOpen) {
+      rightPanel.classList.add('open');
+      if (sidebar) sidebar.classList.remove('open');
+      if (backdrop) backdrop.classList.add('active');
+    } else {
+      rightPanel.classList.remove('open');
+      if (backdrop && (!sidebar || !sidebar.classList.contains('open'))) {
+        backdrop.classList.remove('active');
+      }
+    }
+  }
+
+  closeDrawers() {
+    const sidebar = this.container.querySelector('#studio-sidebar-left');
+    const rightPanel = this.container.querySelector('#studio-panel-right');
+    const backdrop = this.container.querySelector('#studio-drawer-backdrop');
+    if (sidebar) sidebar.classList.remove('open');
+    if (rightPanel) rightPanel.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('active');
+  }
+
   render() {
     const state = store.getState();
     const user = state.user;
@@ -50,6 +97,9 @@ export class StudioView {
         <!-- TOP TOOLBAR -->
         <header class="studio-navbar">
           <div class="studio-nav-brand">
+            <button class="btn btn-icon btn-sm mobile-only" id="btn-toggle-left-sidebar" title="Tools Menu" style="margin-right:2px;">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
             <div class="brand-logo">CF</div>
             <div class="brand-title">
               <span>Creative Vector Studio</span>
@@ -117,6 +167,11 @@ export class StudioView {
             <button class="btn btn-icon btn-sm" id="btn-show-shortcuts" title="Keyboard Shortcuts (?)" style="font-weight:700; font-size:0.82rem; color:var(--text-secondary);">
               ⌨
             </button>
+
+            <!-- Mobile Right Drawer Toggle Button -->
+            <button class="btn btn-icon btn-sm mobile-only" id="btn-toggle-right-panel" title="Parameters & Inspector">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            </button>
           </div>
         </header>
 
@@ -124,6 +179,13 @@ export class StudioView {
         <div class="studio-body">
           <!-- LEFT SIDEBAR: COMPLETE 17-STUDIO DIRECTORY -->
           <aside class="studio-sidebar-left" id="studio-sidebar-left">
+            <div class="sidebar-drawer-header">
+              <div class="sidebar-drawer-title">
+                <span>🛠</span>
+                <span>Creative Studios</span>
+              </div>
+              <button class="btn-drawer-close" id="btn-close-sidebar-left" title="Close Tools">✕</button>
+            </div>
             <!-- 1. VECTOR STUDIO -->
             <div class="tool-category-group">
               <div class="tool-category-header">
@@ -371,6 +433,33 @@ export class StudioView {
             <!-- Rendered by renderInspector() -->
           </aside>
         </div>
+
+        <!-- Drawer Backdrop Overlay -->
+        <div class="studio-drawer-backdrop" id="studio-drawer-backdrop"></div>
+
+        <!-- Mobile Bottom Navigation Bar -->
+        <nav class="studio-mobile-bottom-bar" id="studio-mobile-bottom-bar">
+          <button class="mobile-nav-tab" id="tab-mobile-tools" title="Tools Menu">
+            <span class="tab-icon">🛠</span>
+            <span>Tools</span>
+          </button>
+          <button class="mobile-nav-tab" id="tab-mobile-view" title="Toggle Compare / Canvas">
+            <span class="tab-icon">${this.viewMode === 'compare' ? '🖼' : '✏️'}</span>
+            <span>${this.viewMode === 'compare' ? 'Compare' : 'Canvas'}</span>
+          </button>
+          <button class="mobile-nav-tab" id="tab-mobile-stock" style="color:var(--accent-secondary);" title="Stock Ready Pipeline">
+            <span class="tab-icon">⚡</span>
+            <span>Stock</span>
+          </button>
+          <button class="mobile-nav-tab" id="tab-mobile-params" title="Tool Parameters">
+            <span class="tab-icon">⚙️</span>
+            <span>Params</span>
+          </button>
+          <button class="mobile-nav-tab" id="tab-mobile-export" title="Export Assets">
+            <span class="tab-icon">📦</span>
+            <span>Export</span>
+          </button>
+        </nav>
       </div>
     `;
 
@@ -533,7 +622,13 @@ export class StudioView {
     // Export Trigger
     this.container.querySelector('#btn-top-export').onclick = () => {
       if (this.viewMode === 'canvas' && this.canvasEditor) {
-        store.setState({ currentView: 'export-center' });
+        const svg = this.canvasEditor.exportSvg ? this.canvasEditor.exportSvg() : null;
+        const canvas = this.canvasEditor.exportCanvas ? this.canvasEditor.exportCanvas(1) : null;
+        store.setState({
+          processedCanvas: canvas || this.processedCanvas,
+          processedSvg: svg || this.processedSvg,
+          currentView: 'export-center'
+        });
       } else if (this.processedCanvas) {
         ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
       } else {
@@ -546,6 +641,80 @@ export class StudioView {
     if (shortcutsBtn) {
       shortcutsBtn.onclick = () => ModalManager.openShortcutsModal();
     }
+
+    // Mobile Drawer & Bottom Bar Controls
+    const btnToggleSidebar = this.container.querySelector('#btn-toggle-left-sidebar');
+    if (btnToggleSidebar) btnToggleSidebar.onclick = () => this.toggleLeftSidebar();
+
+    const btnToggleParams = this.container.querySelector('#btn-toggle-right-panel');
+    if (btnToggleParams) btnToggleParams.onclick = () => this.toggleRightPanel();
+
+    const btnCloseSidebar = this.container.querySelector('#btn-close-sidebar-left');
+    if (btnCloseSidebar) btnCloseSidebar.onclick = () => this.closeDrawers();
+
+    const drawerBackdrop = this.container.querySelector('#studio-drawer-backdrop');
+    if (drawerBackdrop) drawerBackdrop.onclick = () => this.closeDrawers();
+
+    // Mobile Bottom Navigation Bar Tabs
+    const tabMobTools = this.container.querySelector('#tab-mobile-tools');
+    if (tabMobTools) tabMobTools.onclick = () => this.toggleLeftSidebar();
+
+    const tabMobView = this.container.querySelector('#tab-mobile-view');
+    if (tabMobView) {
+      tabMobView.onclick = () => {
+        const nextMode = this.viewMode === 'compare' ? 'canvas' : 'compare';
+        switchWorkspaceMode(nextMode);
+        const iconSpan = tabMobView.querySelector('.tab-icon');
+        const textSpan = tabMobView.querySelector('span:last-child');
+        if (iconSpan) iconSpan.textContent = nextMode === 'compare' ? '🖼' : '✏️';
+        if (textSpan) textSpan.textContent = nextMode === 'compare' ? 'Compare' : 'Canvas';
+        this.closeDrawers();
+      };
+    }
+
+    const tabMobStock = this.container.querySelector('#tab-mobile-stock');
+    if (tabMobStock) {
+      tabMobStock.onclick = () => {
+        this.closeDrawers();
+        const source = this.processedCanvas || store.getState().originalImage;
+        StockReadyWorkflow.openStockReadyModal(source);
+      };
+    }
+
+    const tabMobParams = this.container.querySelector('#tab-mobile-params');
+    if (tabMobParams) tabMobParams.onclick = () => this.toggleRightPanel();
+
+    const tabMobExport = this.container.querySelector('#tab-mobile-export');
+    if (tabMobExport) {
+      tabMobExport.onclick = () => {
+        this.closeDrawers();
+        if (this.viewMode === 'canvas' && this.canvasEditor) {
+          const svg = this.canvasEditor.exportSvg ? this.canvasEditor.exportSvg() : null;
+          const canvas = this.canvasEditor.exportCanvas ? this.canvasEditor.exportCanvas(1) : null;
+          store.setState({
+            processedCanvas: canvas || this.processedCanvas,
+            processedSvg: svg || this.processedSvg,
+            currentView: 'export-center'
+          });
+        } else if (this.processedCanvas) {
+          ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
+        } else {
+          toast.error('No processed asset to export yet.');
+        }
+      };
+    }
+
+
+    // Zoom Controls Helper
+    const zoomText = this.container.querySelector('#zoom-text');
+    const updateZoomUI = () => {
+      const z = store.getState().zoom;
+      if (zoomText) zoomText.textContent = `${z}%`;
+      const viewport = this.container.querySelector('#canvas-viewport');
+      if (viewport) {
+        viewport.style.transform = `scale(${z / 100})`;
+      }
+    };
 
     // Global Hotkeys Listener
     HotkeysManager.init({
@@ -572,21 +741,18 @@ export class StudioView {
       onZoomIn: () => {
         const cur = store.getState().zoom || 100;
         store.setState({ zoom: Math.min(800, cur + 25) });
-        const valEl = this.container.querySelector('#val-zoom');
-        if (valEl) valEl.textContent = `${store.getState().zoom}%`;
+        updateZoomUI();
         this.updateCanvasDisplay();
       },
       onZoomOut: () => {
         const cur = store.getState().zoom || 100;
         store.setState({ zoom: Math.max(25, cur - 25) });
-        const valEl = this.container.querySelector('#val-zoom');
-        if (valEl) valEl.textContent = `${store.getState().zoom}%`;
+        updateZoomUI();
         this.updateCanvasDisplay();
       },
       onZoomReset: () => {
         store.setState({ zoom: 100 });
-        const valEl = this.container.querySelector('#val-zoom');
-        if (valEl) valEl.textContent = '100%';
+        updateZoomUI();
         this.updateCanvasDisplay();
       },
       onQuickExport: () => {
@@ -663,19 +829,15 @@ export class StudioView {
         store.setState({ activeTool: tool });
         this.renderInspector();
         this.updateProcessing();
+
+        // Auto-close left sidebar drawer on mobile/tablet screens
+        if (window.innerWidth <= 1024) {
+          this.closeDrawers();
+        }
       };
     });
 
-    // Zoom Controls
-    const zoomText = this.container.querySelector('#zoom-text');
-    const updateZoomUI = () => {
-      const z = store.getState().zoom;
-      zoomText.textContent = `${z}%`;
-      const viewport = this.container.querySelector('#canvas-viewport');
-      if (viewport) {
-        viewport.style.transform = `scale(${z / 100})`;
-      }
-    };
+    // Zoom Controls Button Bindings
 
     this.container.querySelector('#btn-zoom-in').onclick = () => {
       const cur = store.getState().zoom;
@@ -1239,6 +1401,19 @@ export class StudioView {
 
   bindInspectorEvents() {
     const panel = this.container.querySelector('#studio-panel-right');
+    if (!panel) return;
+
+    // Mobile/Tablet Drawer Close Button in right panel header
+    const header = panel.querySelector('.panel-header');
+    if (header && !header.querySelector('#btn-close-panel-right')) {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'btn-drawer-close';
+      closeBtn.id = 'btn-close-panel-right';
+      closeBtn.title = 'Close Parameters';
+      closeBtn.textContent = '✕';
+      closeBtn.onclick = () => this.closeDrawers();
+      header.appendChild(closeBtn);
+    }
 
     // Process button trigger
     const processBtn = panel.querySelector('#btn-process-tool');
@@ -1749,8 +1924,11 @@ export class StudioView {
         badge.textContent = `${res.pathCount} Paths (SVG)`;
         badge.className = 'badge badge-green';
       }
-    } else if (tool.includes('remove') || tool.includes('transparent')) {
+    } else if (tool.startsWith('tool_bg_') || tool.includes('remove') || tool.includes('transparent')) {
+      const bgMode = tool === 'tool_bg_custom' ? 'custom' : (tool === 'tool_bg_transparent' ? 'auto' : 'white');
       outCanvas = BackgroundRemovalEngine.process(img, {
+        mode: bgMode,
+        customColor: p.bgCustomColor || '#ffffff',
         tolerance: p.bgTolerance,
         feather: p.bgFeather,
         shadowPreservation: p.bgShadowPreserve
@@ -1924,6 +2102,26 @@ export class StudioView {
       });
     };
 
+    // Pointer Events for touch screens, styluses, and mouse
+    handle.onpointerdown = (e) => {
+      e.preventDefault();
+      try { handle.setPointerCapture(e.pointerId); } catch(err) {}
+      this.isDraggingSlider = true;
+      handle.onpointermove = (pe) => {
+        if (this.isDraggingSlider) onMove(pe.clientX);
+      };
+      const stopDrag = (pe) => {
+        this.isDraggingSlider = false;
+        handle.onpointermove = null;
+        handle.onpointerup = null;
+        handle.onpointercancel = null;
+        try { if (pe) handle.releasePointerCapture(pe.pointerId); } catch(err) {}
+      };
+      handle.onpointerup = stopDrag;
+      handle.onpointercancel = stopDrag;
+    };
+
+    // Standard Mouse Fallback
     handle.onmousedown = (e) => {
       e.preventDefault();
       this.isDraggingSlider = true;
@@ -1934,6 +2132,23 @@ export class StudioView {
         this.isDraggingSlider = false;
         window.onmousemove = null;
       };
+    };
+
+    // Touch Fallback for Mobile WebKit
+    handle.ontouchstart = (e) => {
+      if (e.touches && e.touches[0]) {
+        this.isDraggingSlider = true;
+        onMove(e.touches[0].clientX);
+      }
+    };
+    sliderWrap.ontouchmove = (e) => {
+      if (this.isDraggingSlider && e.touches && e.touches[0]) {
+        e.preventDefault();
+        onMove(e.touches[0].clientX);
+      }
+    };
+    window.ontouchend = () => {
+      this.isDraggingSlider = false;
     };
 
     sliderWrap.onclick = (e) => {
@@ -2014,7 +2229,10 @@ export class StudioView {
     panel.innerHTML = `
       <div class="panel-header">
         <span class="panel-title">Canvas & Layers</span>
-        <span class="badge badge-cyan">${count > 0 ? `${count} Selected` : 'Workspace'}</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="badge badge-cyan">${count > 0 ? `${count} Selected` : 'Workspace'}</span>
+          <button class="btn-drawer-close" id="btn-close-panel-right-canvas" title="Close Parameters">✕</button>
+        </div>
       </div>
       <div class="panel-content" style="padding:14px; overflow-y:auto; max-height:calc(100vh - 120px);">
         <!-- Selection Properties -->
@@ -2117,6 +2335,10 @@ export class StudioView {
   bindCanvasInspectorEvents(first) {
     const panel = this.container.querySelector('#studio-panel-right');
     if (!panel || !this.canvasEditor) return;
+
+    // Mobile/Tablet Drawer Close Button
+    const closeBtn = panel.querySelector('#btn-close-panel-right-canvas');
+    if (closeBtn) closeBtn.onclick = () => this.closeDrawers();
 
     // Fill Color
     const fillInput = panel.querySelector('#canvas-obj-fill');

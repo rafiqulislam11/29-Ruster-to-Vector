@@ -686,8 +686,10 @@ export class CanvasEditor {
 
   screenToCanvasCoords(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
+    const scaleX = rect.width > 0 ? this.canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? this.canvas.height / rect.height : 1;
+    const clientX = (e.clientX - rect.left) * scaleX;
+    const clientY = (e.clientY - rect.top) * scaleY;
     return {
       x: (clientX - this.pan.x) / this.zoom,
       y: (clientY - this.pan.y) / this.zoom
@@ -856,8 +858,10 @@ export class CanvasEditor {
     const newZoom = Math.min(8, Math.max(0.25, this.zoom * zoomFactor));
 
     const rect = this.canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const scaleX = rect.width > 0 ? this.canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? this.canvas.height / rect.height : 1;
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
 
     this.pan.x = mouseX - (mouseX - this.pan.x) * (newZoom / this.zoom);
     this.pan.y = mouseY - (mouseY - this.pan.y) * (newZoom / this.zoom);
@@ -901,20 +905,52 @@ export class CanvasEditor {
   }
 
   applyResize(dx, dy, origBbox) {
-    let scaleW = 1;
-    let scaleH = 1;
+    if (!origBbox || origBbox.width <= 0 || origBbox.height <= 0) return;
 
+    let newX = origBbox.x;
+    let newY = origBbox.y;
+    let newW = origBbox.width;
+    let newH = origBbox.height;
+
+    // Horizontal handle check
     if (this.activeHandle.includes('r')) {
-      scaleW = Math.max(0.05, (origBbox.width + dx) / origBbox.width);
+      newW = Math.max(10, origBbox.width + dx);
+    } else if (this.activeHandle.includes('l')) {
+      const candidateW = origBbox.width - dx;
+      if (candidateW >= 10) {
+        newW = candidateW;
+        newX = origBbox.x + dx;
+      } else {
+        newW = 10;
+        newX = origBbox.x + (origBbox.width - 10);
+      }
     }
+
+    // Vertical handle check
     if (this.activeHandle.includes('b')) {
-      scaleH = Math.max(0.05, (origBbox.height + dy) / origBbox.height);
+      newH = Math.max(10, origBbox.height + dy);
+    } else if (this.activeHandle.includes('t')) {
+      const candidateH = origBbox.height - dy;
+      if (candidateH >= 10) {
+        newH = candidateH;
+        newY = origBbox.y + dy;
+      } else {
+        newH = 10;
+        newY = origBbox.y + (origBbox.height - 10);
+      }
     }
+
+    const scaleW = newW / origBbox.width;
+    const scaleH = newH / origBbox.height;
 
     this.selectedIds.forEach(id => {
       const orig = this.dragOriginals.get(id);
       const obj = this.objects.find(o => o.id === id);
       if (orig && obj) {
+        const relX = orig.x - origBbox.x;
+        const relY = orig.y - origBbox.y;
+        obj.x = Math.round(newX + relX * scaleW);
+        obj.y = Math.round(newY + relY * scaleH);
         obj.width = Math.max(10, Math.round(orig.width * scaleW));
         obj.height = Math.max(10, Math.round(orig.height * scaleH));
       }
@@ -1142,15 +1178,50 @@ export class CanvasEditor {
 
   exportAsSvg() {
     const { width, height } = this.canvas;
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
     svg += `  <g id="creative_vector_canvas_layers">\n`;
 
     this.objects.forEach(obj => {
       if (!obj.visible) return;
+      const rot = obj.rotation || 0;
+      const sx = obj.scaleX !== undefined ? obj.scaleX : 1;
+      const sy = obj.scaleY !== undefined ? obj.scaleY : 1;
+      const ox = obj.x || 0;
+      const oy = obj.y || 0;
+      const w = obj.width || 0;
+      const h = obj.height || 0;
+      const opacity = obj.opacity !== undefined ? obj.opacity : 1;
+      const fill = obj.fill || 'none';
+      const stroke = obj.stroke || 'none';
+      const strokeWidth = obj.strokeWidth || 0;
+
+      let transformAttr = '';
+      if (ox !== 0 || oy !== 0 || rot !== 0 || sx !== 1 || sy !== 1) {
+        const cx = ox + w / 2;
+        const cy = oy + h / 2;
+        if (rot === 0 && sx === 1 && sy === 1) {
+          transformAttr = ` transform="translate(${ox}, ${oy})"`;
+        } else {
+          transformAttr = ` transform="translate(${cx}, ${cy}) rotate(${rot}) scale(${sx}, ${sy}) translate(${-w / 2}, ${-h / 2})"`;
+        }
+      }
+
       if (obj.type === 'path' && obj.d) {
-        svg += `    <path id="${obj.id}" d="${obj.d}" fill="${obj.fill}" stroke="${obj.stroke}" stroke-width="${obj.strokeWidth}" opacity="${obj.opacity}" />\n`;
+        svg += `    <path id="${obj.id}" d="${obj.d}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}"${transformAttr} />\n`;
       } else if (obj.type === 'rect') {
-        svg += `    <rect id="${obj.id}" x="${obj.x}" y="${obj.y}" width="${obj.width}" height="${obj.height}" fill="${obj.fill}" stroke="${obj.stroke}" stroke-width="${obj.strokeWidth}" opacity="${obj.opacity}" />\n`;
+        const rx = transformAttr ? 0 : ox;
+        const ry = transformAttr ? 0 : oy;
+        svg += `    <rect id="${obj.id}" x="${rx}" y="${ry}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}"${transformAttr} />\n`;
+      } else if (obj.type === 'circle') {
+        const cx = transformAttr ? w / 2 : ox + w / 2;
+        const cy = transformAttr ? h / 2 : oy + h / 2;
+        const r = Math.min(w, h) / 2;
+        svg += `    <circle id="${obj.id}" cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}"${transformAttr} />\n`;
+      } else if (obj.type === 'image' && obj.img) {
+        const ix = transformAttr ? 0 : ox;
+        const iy = transformAttr ? 0 : oy;
+        const src = obj.img.src || '';
+        svg += `    <image id="${obj.id}" x="${ix}" y="${iy}" width="${w}" height="${h}" href="${src}" opacity="${opacity}"${transformAttr} />\n`;
       }
     });
 

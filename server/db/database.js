@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config/env');
 
-const DB_FILE = path.resolve(process.cwd(), config.databasePath);
+const DB_FILE = path.isAbsolute(config.databasePath)
+  ? config.databasePath
+  : (fs.existsSync(path.resolve(__dirname, '../../', config.databasePath))
+    ? path.resolve(__dirname, '../../', config.databasePath)
+    : path.resolve(process.cwd(), config.databasePath));
 const DB_DIR = path.dirname(DB_FILE);
 
 if (!fs.existsSync(DB_DIR)) {

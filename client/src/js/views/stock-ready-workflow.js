@@ -127,9 +127,37 @@ export class StockReadyWorkflow {
     const rCtx = renderCanvas.getContext('2d');
     const vImg = new Image();
     const svgBlob = new Blob([cleanSvg], { type: 'image/svg+xml;charset=utf-8' });
-    vImg.src = URL.createObjectURL(svgBlob);
-    await vImg.decode();
-    rCtx.drawImage(vImg, 0, 0, targetScaleW, targetScaleH);
+    const blobUrl = URL.createObjectURL(svgBlob);
+    try {
+      await new Promise((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          try {
+            rCtx.drawImage(vImg, 0, 0, targetScaleW, targetScaleH);
+          } catch (e) {
+            console.warn('Canvas render from SVG fallback:', e);
+          }
+          resolve();
+        };
+        vImg.onload = done;
+        vImg.onerror = () => {
+          if (settled) return;
+          settled = true;
+          console.warn('SVG preview decode fallback');
+          resolve();
+        };
+        vImg.src = blobUrl;
+        if (typeof vImg.decode === 'function') {
+          vImg.decode().then(done).catch(() => {
+            // onload/onerror fallback
+          });
+        }
+      });
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
 
     const pngBlob = await PpiWriter.exportWithPpi(renderCanvas, 'png', 300);
     zip.file(`${finalBaseName}.png`, pngBlob);

@@ -9,6 +9,7 @@ import '../css/studio.css';
 import '../css/canvas.css';
 import '../css/landing.css';
 import '../css/dashboard.css';
+import '../css/responsive.css';
 
 import { store } from './state.js';
 import { api } from './api.js';

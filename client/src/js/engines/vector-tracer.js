@@ -241,6 +241,7 @@ export class VectorTracer {
   static applyEdgeSharpening(ctx, w, h, strength) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
+    const src = new Uint8ClampedArray(data);
     const factor = (strength / 100) * 0.5;
     const center = 1 + 4 * factor;
     const edge = -factor;
@@ -250,11 +251,11 @@ export class VectorTracer {
       for (let x = 1; x < w - 1; x++) {
         const idx = (row + x) * 4;
         for (let c = 0; c < 3; c++) {
-          const val = data[idx + c] * center +
-                      (data[((y - 1) * w + x) * 4 + c] +
-                       data[((y + 1) * w + x) * 4 + c] +
-                       data[(row + x - 1) * 4 + c] +
-                       data[(row + x + 1) * 4 + c]) * edge;
+          const val = src[idx + c] * center +
+                      (src[((y - 1) * w + x) * 4 + c] +
+                       src[((y + 1) * w + x) * 4 + c] +
+                       src[(row + x - 1) * 4 + c] +
+                       src[(row + x + 1) * 4 + c]) * edge;
           data[idx + c] = Math.min(255, Math.max(0, val));
         }
       }

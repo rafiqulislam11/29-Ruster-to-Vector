@@ -27,17 +27,21 @@ export class LandingView {
             </div>
           </div>
 
-          <div class="landing-nav-links">
+          <div class="landing-nav-links" id="landing-nav-links">
             <a href="#features" class="landing-nav-link">Features</a>
             <a href="#tools" class="landing-nav-link">Creative Tools</a>
             <a href="#pricing" class="landing-nav-link">Pricing</a>
             <a href="#faq" class="landing-nav-link">FAQ</a>
             <span class="landing-nav-link" id="nav-open-dashboard" style="cursor:pointer;">User Dashboard</span>
             <span class="landing-nav-link" id="nav-open-admin" style="cursor:pointer; color:var(--accent-tertiary);">Admin Panel</span>
+            <button class="btn btn-primary mobile-only" id="btn-hero-launch-mobile" style="width:100%; margin-top:8px;">Launch Creative Studio</button>
           </div>
 
           <div style="display:flex; align-items:center; gap:12px;">
-            <button class="btn btn-primary" id="btn-hero-launch">Launch Creative Studio</button>
+            <button class="btn btn-primary desktop-only" id="btn-hero-launch">Launch Creative Studio</button>
+            <button class="landing-hamburger-btn" id="btn-landing-hamburger" title="Open Menu" aria-label="Open navigation menu" aria-expanded="false">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
           </div>
         </nav>
 
@@ -370,8 +374,8 @@ export class LandingView {
   bindEvents() {
     const launch = () => this.onNavigateStudio();
 
-    this.container.querySelectorAll('#btn-hero-launch, #btn-hero-start, #btn-hero-explore, #btn-plan-pro, #btn-plan-free, #btn-plan-creator, #btn-plan-business').forEach(b => {
-      b.onclick = launch;
+    this.container.querySelectorAll('#btn-hero-launch, #btn-hero-launch-mobile, #btn-hero-start, #btn-hero-explore, #btn-plan-pro, #btn-plan-free, #btn-plan-creator, #btn-plan-business').forEach(b => {
+      if (b) b.onclick = launch;
     });
 
     const dashBtn = this.container.querySelector('#nav-open-dashboard');
@@ -391,5 +395,26 @@ export class LandingView {
         this.render(slug);
       };
     });
+
+    // Mobile hamburger menu toggle
+    const hamburgerBtn = this.container.querySelector('#btn-landing-hamburger');
+    const navLinks = this.container.querySelector('#landing-nav-links');
+    if (hamburgerBtn && navLinks) {
+      hamburgerBtn.onclick = () => {
+        const isOpen = navLinks.classList.toggle('mobile-open');
+        hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+        hamburgerBtn.innerHTML = isOpen
+          ? `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`
+          : `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>`;
+      };
+      // Close mobile nav when a link is clicked
+      navLinks.querySelectorAll('.landing-nav-link, a').forEach(link => {
+        link.addEventListener('click', () => {
+          navLinks.classList.remove('mobile-open');
+          hamburgerBtn.setAttribute('aria-expanded', 'false');
+          hamburgerBtn.innerHTML = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>`;
+        });
+      });
+    }
   }
 }

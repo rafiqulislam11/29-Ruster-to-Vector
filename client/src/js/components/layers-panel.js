@@ -118,6 +118,9 @@ export class LayersPanel {
           }
           this.editor.render();
           this.render(this.editor.objects, Array.from(this.editor.selectedIds));
+          if (this.editor.onSelectionChange) {
+            this.editor.onSelectionChange(this.editor.selectedObjects);
+          }
         }
       };
     });
@@ -130,6 +133,9 @@ export class LayersPanel {
         if (obj) {
           obj.name = input.value.trim() || obj.name;
           this.editor.render();
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
           toast.info(`Renamed layer to "${obj.name}"`);
         }
       };
@@ -144,6 +150,9 @@ export class LayersPanel {
           const val = Math.max(0, Math.min(100, parseInt(input.value, 10) || 100));
           obj.opacity = val / 100;
           this.editor.render();
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
         }
       };
     });
@@ -158,6 +167,9 @@ export class LayersPanel {
           obj.visible = !obj.visible;
           this.editor.render();
           this.render(this.editor.objects, Array.from(this.editor.selectedIds));
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
         }
       };
     });
@@ -172,6 +184,9 @@ export class LayersPanel {
           obj.locked = !obj.locked;
           this.editor.render();
           this.render(this.editor.objects, Array.from(this.editor.selectedIds));
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
         }
       };
     });
@@ -188,6 +203,9 @@ export class LayersPanel {
           this.editor.objects[idx + 1] = temp;
           this.editor.render();
           this.render(this.editor.objects, Array.from(this.editor.selectedIds));
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
         }
       };
     });
@@ -204,6 +222,9 @@ export class LayersPanel {
           this.editor.objects[idx - 1] = temp;
           this.editor.render();
           this.render(this.editor.objects, Array.from(this.editor.selectedIds));
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
         }
       };
     });
@@ -218,6 +239,12 @@ export class LayersPanel {
           this.editor.selectedIds.delete(id);
           this.editor.render();
           this.render(this.editor.objects, Array.from(this.editor.selectedIds));
+          if (this.editor.onObjectsChange) {
+            this.editor.onObjectsChange(this.editor.objects);
+          }
+          if (this.editor.onSelectionChange) {
+            this.editor.onSelectionChange(this.editor.selectedObjects);
+          }
           toast.info('Deleted layer');
         }
       };

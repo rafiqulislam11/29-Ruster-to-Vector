@@ -206,8 +206,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
   animation: fadeIn 0.2s ease-out;
+  box-sizing: border-box;
 }
 .modal-container {
   width: 100%;
@@ -218,6 +219,7 @@
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
 }
@@ -227,10 +229,13 @@
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 .modal-body {
   padding: 20px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
 }
 .modal-footer {
   padding: 14px 20px;
@@ -240,6 +245,35 @@
   gap: 10px;
   border-top: 1px solid var(--border-subtle);
   background: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .modal-backdrop {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  .modal-container {
+    max-width: 100%;
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .modal-header {
+    padding: 12px 14px;
+  }
+  .modal-body {
+    padding: 14px;
+  }
+  .modal-footer {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+  }
+  .modal-footer .btn {
+    flex: 1;
+    min-width: 120px;
+  }
 }
 
 /* Toasts */
@@ -259,6 +293,7 @@
   padding: 12px 18px;
   background: var(--bg-glass-heavy);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
@@ -270,6 +305,22 @@
 .toast-item.toast-success { border-left: 4px solid var(--status-success); }
 .toast-item.toast-error { border-left: 4px solid var(--status-danger); }
 .toast-item.toast-info { border-left: 4px solid var(--accent-secondary); }
+
+@media (max-width: 640px) {
+  .toast-container {
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-bottom-bar-height) + 14px);
+    align-items: center;
+  }
+  .toast-item {
+    min-width: unset;
+    width: 100%;
+    max-width: 420px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
+}
 
 /* Color Swatch */
 .color-swatch-list {

@@ -48,8 +48,14 @@
 
   /* Dimensions & Spacing */
   --header-height: 60px;
+  --header-height-mobile: 52px;
+  --mobile-bottom-bar-height: 56px;
   --sidebar-left-width: 270px;
+  --sidebar-drawer-width: min(320px, 86vw);
   --panel-right-width: 330px;
+  --panel-drawer-width: min(360px, 92vw);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;

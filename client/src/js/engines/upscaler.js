@@ -111,22 +111,22 @@ export class ImageUpscalerEngine {
   static applyUnsharpMask(ctx, w, h, sharpness, detail, edgeEnhancement) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
+    const src = new Uint8ClampedArray(data);
 
     const strength = (sharpness / 100) * 0.6 + (detail / 100) * 0.25 + (edgeEnhancement / 100) * 0.15;
     const center = 1 + 4 * strength;
     const edge = -strength;
 
-    const step = 2; // Performance optimization for large 4K/8K canvases
-    for (let y = 1; y < h - 1; y += step) {
+    for (let y = 1; y < h - 1; y++) {
       const rowOffset = y * w;
-      for (let x = 1; x < w - 1; x += step) {
+      for (let x = 1; x < w - 1; x++) {
         const idx = (rowOffset + x) * 4;
         for (let c = 0; c < 3; c++) {
-          const val = data[idx + c] * center +
-                      (data[((y - 1) * w + x) * 4 + c] +
-                       data[((y + 1) * w + x) * 4 + c] +
-                       data[(rowOffset + (x - 1)) * 4 + c] +
-                       data[(rowOffset + (x + 1)) * 4 + c]) * edge;
+          const val = src[idx + c] * center +
+                      (src[((y - 1) * w + x) * 4 + c] +
+                       src[((y + 1) * w + x) * 4 + c] +
+                       src[(rowOffset + (x - 1)) * 4 + c] +
+                       src[(rowOffset + (x + 1)) * 4 + c]) * edge;
           data[idx + c] = Math.min(255, Math.max(0, val));
         }
       }
@@ -141,20 +141,21 @@ export class ImageUpscalerEngine {
   static applyNoiseArtifactSuppression(ctx, w, h, noiseRed, artifactRed) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
+    const src = new Uint8ClampedArray(data);
     const blend = ((noiseRed + artifactRed) / 200) * 0.2;
 
-    for (let y = 1; y < h - 1; y += 3) {
+    for (let y = 1; y < h - 1; y++) {
       const row = y * w;
-      for (let x = 1; x < w - 1; x += 3) {
+      for (let x = 1; x < w - 1; x++) {
         const idx = (row + x) * 4;
         for (let c = 0; c < 3; c++) {
           const avgNeighbor = (
-            data[((y - 1) * w + x) * 4 + c] +
-            data[((y + 1) * w + x) * 4 + c] +
-            data[(row + x - 1) * 4 + c] +
-            data[(row + x + 1) * 4 + c]
+            src[((y - 1) * w + x) * 4 + c] +
+            src[((y + 1) * w + x) * 4 + c] +
+            src[(row + x - 1) * 4 + c] +
+            src[(row + x + 1) * 4 + c]
           ) >> 2;
-          data[idx + c] = Math.round(data[idx + c] * (1 - blend) + avgNeighbor * blend);
+          data[idx + c] = Math.round(src[idx + c] * (1 - blend) + avgNeighbor * blend);
         }
       }
     }

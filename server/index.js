@@ -28,10 +28,15 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static Storage serving
-app.use('/storage', express.static(path.resolve(process.cwd(), config.storage.localDir)));
+const storageDir = fs.existsSync(path.resolve(__dirname, '../', config.storage.localDir))
+  ? path.resolve(__dirname, '../', config.storage.localDir)
+  : path.resolve(process.cwd(), config.storage.localDir);
+app.use('/storage', express.static(storageDir));
 
 // Serve Client static build if present
-const clientDist = path.resolve(process.cwd(), 'client/dist');
+const clientDist = fs.existsSync(path.resolve(__dirname, '../client/dist'))
+  ? path.resolve(__dirname, '../client/dist')
+  : path.resolve(process.cwd(), 'client/dist');
 app.use(express.static(clientDist));
 
 const apiStudiosRoutes = require('./routes/api-studios');
@@ -88,7 +93,7 @@ app.use((req, res, next) => {
   if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/storage')) {
     return next();
   }
-  const indexPath = path.resolve(process.cwd(), 'client/dist/index.html');
+  const indexPath = path.join(clientDist, 'index.html');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
@@ -111,7 +116,7 @@ const server = app.listen(PORT, () => {
   console.log(`====================================================`);
   console.log(` CreativeForge AI Engine & API Server is running!`);
   console.log(` Port: http://localhost:${PORT}`);
-  console.log(` Storage Path: ${path.resolve(process.cwd(), config.storage.localDir)}`);
+  console.log(` Storage Path: ${storageDir}`);
   console.log(` AI Provider Mode: ${aiFactory.getStatus().mode}`);
   console.log(`====================================================`);
 });
