@@ -436,9 +436,61 @@ export class ModalManager {
 
           <div style="height:1px; background:var(--border-subtle); margin:16px 0;"></div>
 
-          <!-- Step 3: Progress Dashboard -->
+          <!-- Step 3: Export Format -->
+          <div>
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 3 — Export Format</div>
+            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:10px;" id="bbg-fmt-grid">
+              <button class="bbg-fmt-btn active" data-fmt="png" style="background:rgba(99,102,241,0.2); border:2px solid var(--accent-primary); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1rem;">🖼️</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary); margin-top:2px;">PNG</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Lossless</div>
+              </button>
+              <button class="bbg-fmt-btn" data-fmt="jpeg" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1rem;">📷</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary); margin-top:2px;">JPEG</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Small size</div>
+              </button>
+              <button class="bbg-fmt-btn" data-fmt="webp" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1rem;">🌐</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary); margin-top:2px;">WebP</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Modern web</div>
+              </button>
+              <button class="bbg-fmt-btn" data-fmt="svg" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1rem;">✏️</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary); margin-top:2px;">SVG</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Scalable</div>
+              </button>
+              <button class="bbg-fmt-btn" data-fmt="eps" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1rem;">🖨️</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary); margin-top:2px;">EPS</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Print/Press</div>
+              </button>
+            </div>
+
+            <!-- JPEG quality slider (shown only for JPEG) -->
+            <div id="bbg-jpeg-quality-row" style="display:none; background:var(--bg-tertiary); padding:10px 12px; border-radius:8px; margin-bottom:4px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <label style="font-size:0.8rem; font-weight:600;">JPEG Quality</label>
+                <span id="bbg-jpeg-q-val" style="font-size:0.8rem; font-weight:700; color:var(--accent-secondary);">92</span>
+              </div>
+              <input type="range" id="bbg-jpeg-quality" min="50" max="100" value="92" style="width:100%;" />
+              <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); margin-top:2px;">
+                <span>Smaller file</span><span>Maximum quality</span>
+              </div>
+            </div>
+
+            <!-- Format info bar -->
+            <div id="bbg-fmt-info" style="font-size:0.72rem; color:var(--text-muted); padding:6px 10px; background:var(--bg-tertiary); border-radius:6px; margin-top:4px;">
+              📦 <strong>PNG</strong> — Lossless compression, supports transparency. Best for cutouts & web use.
+            </div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle); margin:16px 0;"></div>
+
+          <!-- Step 4: Progress Dashboard -->
           <div id="bbg-progress-section" style="display:none;">
-            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 3 — Processing</div>
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 4 — Processing</div>
+
 
             <!-- Stats Row -->
             <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
@@ -578,8 +630,42 @@ export class ModalManager {
     denoiseSlider.oninput = () => { denoiseValEl.textContent = denoiseSlider.value; };
     edgeSlider.oninput    = () => { edgeValEl.textContent    = edgeSlider.value; };
 
+    // ── Export Format pill selection ──
+    const fmtBtns         = modalEl.querySelectorAll('.bbg-fmt-btn');
+    const jpegQualityRow  = modalEl.querySelector('#bbg-jpeg-quality-row');
+    const jpegQualitySldr = modalEl.querySelector('#bbg-jpeg-quality');
+    const jpegQValEl      = modalEl.querySelector('#bbg-jpeg-q-val');
+    const fmtInfoEl       = modalEl.querySelector('#bbg-fmt-info');
+
+    const FORMAT_INFO = {
+      png:  '📦 <strong>PNG</strong> — Lossless compression, supports transparency. Best for cutouts &amp; web use.',
+      jpeg: '📷 <strong>JPEG</strong> — Lossy, smaller file size. Best for photos. Note: no transparency.',
+      webp: '🌐 <strong>WebP</strong> — Modern web format, great quality &amp; small size. Supports transparency.',
+      svg:  '✏️ <strong>SVG</strong> — Scalable vector wrapper. Image embedded as PNG data. Opens in browsers &amp; Illustrator.',
+      eps:  '🖨️ <strong>EPS</strong> — PostScript format for print &amp; press. Compatible with Illustrator, InDesign, CorelDRAW.',
+    };
+
+    let selectedExportFmt = 'png';
+
+    fmtBtns.forEach(btn => {
+      btn.onclick = () => {
+        fmtBtns.forEach(b => {
+          b.style.background   = 'var(--bg-tertiary)';
+          b.style.borderColor  = 'var(--border-subtle)';
+          b.classList.remove('active');
+        });
+        btn.style.background  = 'rgba(99,102,241,0.2)';
+        btn.style.borderColor = 'var(--accent-primary)';
+        btn.classList.add('active');
+        selectedExportFmt = btn.dataset.fmt;
+        jpegQualityRow.style.display = selectedExportFmt === 'jpeg' ? 'block' : 'none';
+        fmtInfoEl.innerHTML = FORMAT_INFO[selectedExportFmt] || '';
+      };
+    });
+    jpegQualitySldr.oninput = () => { jpegQValEl.textContent = jpegQualitySldr.value; };
 
     // ── Mode pill selection ──
+
     const modeBtns = modalEl.querySelectorAll('.bbg-mode-btn');
     const optsColor    = modalEl.querySelector('#bbg-opts-color');
     const optsGradient = modalEl.querySelector('#bbg-opts-gradient');
@@ -898,17 +984,93 @@ export class ModalManager {
             await img.decode();
             URL.revokeObjectURL(url);
 
-            // Process with enhancement
+            // Process with enhancement pipeline
             const canvas = applyBgAction(img);
+            const W = canvas.width;
+            const H = canvas.height;
+            const baseName = fileName.replace(/\.[^/.]+$/, '');
+            const bgSuffix = selectedMode === 'remove' ? 'transparent' : `bg_${selectedMode}`;
 
-            // Export as lossless PNG (no quality loss)
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-            const buf = await blob.arrayBuffer();
+            // ── Multi-Format Export ──
+            let fileData, outName;
 
-            const suffix = selectedMode === 'remove' ? 'transparent' : `bg_${selectedMode}`;
-            const outName = `${fileName.replace(/\.[^/.]+$/,'')}_${suffix}.png`;
-            folder.file(outName, buf);
+            if (selectedExportFmt === 'jpeg') {
+              // For JPEG, flatten transparency onto white (JPEG has no alpha)
+              const flat = document.createElement('canvas');
+              flat.width = W; flat.height = H;
+              const fctx = flat.getContext('2d');
+              fctx.fillStyle = '#ffffff';
+              fctx.fillRect(0, 0, W, H);
+              fctx.drawImage(canvas, 0, 0);
+              const jpegQ = parseInt(jpegQualitySldr.value, 10) / 100;
+              const blob = await new Promise(res => flat.toBlob(res, 'image/jpeg', jpegQ));
+              fileData = await blob.arrayBuffer();
+              outName = `${baseName}_${bgSuffix}.jpg`;
+
+            } else if (selectedExportFmt === 'webp') {
+              const blob = await new Promise(res => canvas.toBlob(res, 'image/webp', 0.95));
+              fileData = await blob.arrayBuffer();
+              outName = `${baseName}_${bgSuffix}.webp`;
+
+            } else if (selectedExportFmt === 'svg') {
+              // Embed PNG as base64 data URL inside SVG wrapper
+              const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+              const pngBuf  = await pngBlob.arrayBuffer();
+              const b64 = btoa(String.fromCharCode(...new Uint8Array(pngBuf)));
+              const svgStr = [
+                `<?xml version="1.0" encoding="UTF-8"?>`,
+                `<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">`,
+                `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
+                `     width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
+                `  <title>${baseName}</title>`,
+                `  <image x="0" y="0" width="${W}" height="${H}"`,
+                `         xlink:href="data:image/png;base64,${b64}" />`,
+                `</svg>`
+              ].join('\n');
+              fileData = new TextEncoder().encode(svgStr).buffer;
+              outName = `${baseName}_${bgSuffix}.svg`;
+
+            } else if (selectedExportFmt === 'eps') {
+              // EPS (Level 2) with embedded base64 PNG raster image
+              const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+              const pngBuf  = await pngBlob.arrayBuffer();
+              const b64 = btoa(String.fromCharCode(...new Uint8Array(pngBuf)));
+              // Split base64 into 72-char lines (EPS DSC spec)
+              const b64Lines = b64.match(/.{1,72}/g) || [];
+              const epsStr = [
+                `%!PS-Adobe-3.0 EPSF-3.0`,
+                `%%BoundingBox: 0 0 ${W} ${H}`,
+                `%%HiResBoundingBox: 0 0 ${W} ${H}`,
+                `%%Title: (${baseName})`,
+                `%%Creator: Creative Vector Studio — Batch BG Engine`,
+                `%%CreationDate: (${new Date().toISOString()})`,
+                `%%LanguageLevel: 3`,
+                `%%EndComments`,
+                `%%BeginProlog`,
+                `/bd { bind def } bind def`,
+                `/picstr ${W * 3} string def`,
+                `%%EndProlog`,
+                `%%Page: 1 1`,
+                `${W} ${H} scale`,
+                `${W} ${H} 8 [${W} 0 0 -${H} 0 ${H}]`,
+                `{<${b64Lines.join('\n')}>} false 3 colorimage`,
+                `showpage`,
+                `%%Trailer`,
+                `%%EOF`
+              ].join('\n');
+              fileData = new TextEncoder().encode(epsStr).buffer;
+              outName = `${baseName}_${bgSuffix}.eps`;
+
+            } else {
+              // Default: PNG lossless
+              const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+              fileData = await blob.arrayBuffer();
+              outName = `${baseName}_${bgSuffix}.png`;
+            }
+
+            folder.file(outName, fileData);
             processed++;
+
           } catch (e) {
             console.warn(`[BatchBG] Failed: ${fileName}`, e);
             failed++;
