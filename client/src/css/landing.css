@@ -1,5 +1,8 @@
-/* Landing Page & Marketing Styling */
+/* Landing Page & Marketing Styling — Full Responsive Edition */
 
+/* =============================================
+   BASE CONTAINER
+   ============================================= */
 .landing-container {
   width: 100%;
   min-height: 100vh;
@@ -7,27 +10,34 @@
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
-/* Public Header */
+/* =============================================
+   NAVIGATION — Sticky Glassmorphism Header
+   ============================================= */
 .landing-nav {
   height: 70px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 40px;
+  padding: 0 clamp(16px, 4vw, 48px);
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-glass-heavy);
-  backdrop-filter: blur(16px);
+  backdrop-filter: var(--blur-lg);
+  -webkit-backdrop-filter: var(--blur-lg);
   position: sticky;
   top: 0;
   z-index: 100;
+  /* Safe area for notched phones */
+  padding-left: max(clamp(16px, 4vw, 48px), env(safe-area-inset-left));
+  padding-right: max(clamp(16px, 4vw, 48px), env(safe-area-inset-right));
 }
 
 .landing-nav-links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: clamp(16px, 2.5vw, 32px);
 }
 .landing-nav-link {
   color: var(--text-secondary);
@@ -35,15 +45,45 @@
   font-weight: 500;
   cursor: pointer;
   transition: color var(--transition-fast);
+  white-space: nowrap;
+  /* Minimum touch target */
+  padding: 8px 4px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
-.landing-nav-link:hover, .landing-nav-link.active {
+.landing-nav-link:hover,
+.landing-nav-link.active {
   color: #ffffff;
 }
 
-/* Hero Section */
+/* Mobile Hamburger */
+.landing-hamburger-btn {
+  display: none;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+.landing-hamburger-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-bright);
+}
+
+/* =============================================
+   HERO SECTION — Fluid Typography
+   ============================================= */
 .hero-section {
   position: relative;
-  padding: 100px 20px 80px;
+  padding: clamp(60px, 10vw, 120px) clamp(16px, 5vw, 60px) clamp(40px, 7vw, 90px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -56,9 +96,9 @@
   top: 20%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 700px;
-  height: 350px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.15) 50%, transparent 80%);
+  width: min(700px, 90vw);
+  height: min(350px, 45vw);
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.28) 0%, rgba(6, 182, 212, 0.15) 50%, transparent 80%);
   filter: blur(80px);
   pointer-events: none;
   z-index: 0;
@@ -67,30 +107,33 @@
 .hero-badge {
   position: relative;
   z-index: 1;
-  margin-bottom: 20px;
+  margin-bottom: clamp(14px, 2.5vw, 22px);
 }
 
+/* Fluid headline — scales smoothly across ALL screen sizes */
 .hero-headline {
   position: relative;
   z-index: 1;
-  font-size: 3.5rem;
+  font-size: clamp(1.9rem, 5.5vw + 0.5rem, 4rem);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.08;
   max-width: 900px;
-  margin-bottom: 24px;
+  margin-bottom: clamp(16px, 3vw, 28px);
   background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
 }
 
 .hero-subheadline {
   position: relative;
   z-index: 1;
-  font-size: 1.25rem;
+  font-size: clamp(0.9rem, 1.5vw + 0.3rem, 1.25rem);
   color: var(--text-secondary);
   max-width: 680px;
-  margin-bottom: 36px;
-  line-height: 1.6;
+  margin-bottom: clamp(24px, 4vw, 40px);
+  line-height: 1.65;
 }
 
 .hero-actions {
@@ -98,126 +141,148 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: clamp(10px, 2vw, 20px);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* Interactive Showcase Mockup */
+/* Hero preview mockup — responsive max-width */
 .hero-preview-frame {
   position: relative;
   z-index: 1;
-  margin-top: 60px;
+  margin-top: clamp(32px, 6vw, 70px);
   width: 100%;
-  max-width: 1100px;
+  max-width: min(1100px, 96vw);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-bright);
   background: var(--bg-secondary);
-  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.8), 0 0 50px rgba(99, 102, 241, 0.2);
+  box-shadow:
+    0 30px 100px rgba(0, 0, 0, 0.8),
+    0 0 60px rgba(99, 102, 241, 0.18);
   overflow: hidden;
 }
 
-/* Feature Grid Cards */
+/* =============================================
+   FEATURES SECTION
+   ============================================= */
 .features-section {
-  padding: 80px 40px;
-  max-width: 1200px;
+  padding: clamp(40px, 8vw, 90px) clamp(16px, 5vw, 50px);
+  max-width: 1240px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
 }
+
 .section-header {
   text-align: center;
-  margin-bottom: 50px;
+  margin-bottom: clamp(32px, 5vw, 60px);
 }
 .section-title {
-  font-size: 2.2rem;
+  font-size: clamp(1.6rem, 3vw + 0.5rem, 2.6rem);
   font-weight: 800;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  letter-spacing: -0.02em;
 }
 .section-subtitle {
-  font-size: 1rem;
+  font-size: clamp(0.88rem, 1.2vw + 0.3rem, 1rem);
   color: var(--text-secondary);
   max-width: 600px;
   margin: 0 auto;
+  line-height: 1.6;
 }
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: clamp(14px, 2.5vw, 26px);
 }
 
 .feature-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 28px;
+  padding: clamp(20px, 3vw, 30px);
   transition: all var(--transition-normal);
   display: flex;
   flex-direction: column;
 }
 .feature-card:hover {
   transform: translateY(-4px);
-  border-color: var(--border-bright);
+  border-color: rgba(99, 102, 241, 0.35);
   box-shadow: var(--shadow-glow);
 }
+
 .feature-card-icon {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-md);
   background: var(--accent-gradient-glow);
+  border: 1px solid rgba(99, 102, 241, 0.2);
   color: var(--accent-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
   margin-bottom: 18px;
+  flex-shrink: 0;
 }
 .feature-card-title {
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 1.5vw + 0.3rem, 1.2rem);
   font-weight: 700;
   margin-bottom: 8px;
 }
 .feature-card-desc {
-  font-size: 0.9rem;
+  font-size: clamp(0.84rem, 1vw + 0.2rem, 0.92rem);
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.55;
   margin-bottom: 18px;
   flex: 1;
 }
 
-/* Pricing Section */
+/* =============================================
+   PRICING SECTION
+   ============================================= */
 .pricing-section {
-  padding: 80px 40px;
-  max-width: 1200px;
+  padding: clamp(40px, 8vw, 90px) clamp(16px, 5vw, 50px);
+  max-width: 1240px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
 }
+
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: clamp(14px, 2.5vw, 26px);
 }
+
 .pricing-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 32px 24px;
+  padding: clamp(24px, 3vw, 36px) clamp(20px, 2.5vw, 28px);
   display: flex;
   flex-direction: column;
   position: relative;
   transition: all var(--transition-normal);
 }
+.pricing-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
 .pricing-card.featured {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 40px rgba(99, 102, 241, 0.22);
 }
 .pricing-name {
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 1.5vw + 0.2rem, 1.2rem);
   font-weight: 700;
   margin-bottom: 8px;
 }
 .pricing-price {
-  font-size: 2.4rem;
+  font-size: clamp(2rem, 3.5vw + 0.5rem, 2.6rem);
   font-weight: 800;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   display: flex;
   align-items: baseline;
   gap: 4px;
@@ -229,26 +294,26 @@
 }
 .pricing-features {
   list-style: none;
-  margin: 20px 0 28px;
+  margin: 18px 0 26px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(8px, 1.5vw, 13px);
   flex: 1;
 }
 .pricing-feature-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.88rem;
+  font-size: clamp(0.82rem, 1vw + 0.2rem, 0.9rem);
   color: var(--text-secondary);
 }
-.pricing-feature-item svg {
-  color: var(--status-success);
-}
+.pricing-feature-item svg { color: var(--status-success); }
 
-/* SEO Tool Page Landing Layout */
+/* =============================================
+   SEO / TOOL PAGE SECTIONS
+   ============================================= */
 .seo-tool-header {
-  padding: 60px 40px 30px;
+  padding: clamp(40px, 7vw, 70px) clamp(16px, 5vw, 50px) clamp(20px, 4vw, 36px);
   max-width: 1000px;
   margin: 0 auto;
   text-align: center;
@@ -256,57 +321,78 @@
 .seo-tool-tagline {
   color: var(--accent-secondary);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: clamp(0.75rem, 1vw + 0.2rem, 0.88rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 12px;
 }
+
 .seo-tool-faq {
-  padding: 60px 40px;
-  max-width: 800px;
+  padding: clamp(32px, 7vw, 68px) clamp(16px, 5vw, 50px);
+  max-width: 820px;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 .faq-item {
   border-bottom: 1px solid var(--border-subtle);
-  padding: 18px 0;
+  padding: clamp(14px, 2.5vw, 22px) 0;
 }
 .faq-question {
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 1.2vw + 0.3rem, 1.08rem);
   font-weight: 600;
   margin-bottom: 8px;
+  cursor: pointer;
 }
 .faq-answer {
-  font-size: 0.9rem;
+  font-size: clamp(0.84rem, 1vw + 0.2rem, 0.92rem);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-/* Mobile Hamburger & Responsive Landing Navigation */
-.landing-hamburger-btn {
-  display: none;
-  width: 38px;
-  height: 38px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-medium);
-  cursor: pointer;
-  touch-action: manipulation;
+/* =============================================
+   TABLET (768px – 1024px)
+   ============================================= */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .landing-nav {
+    height: 64px;
+    padding: 0 clamp(16px, 3vw, 32px);
+  }
+  .landing-nav-links {
+    gap: 16px;
+  }
+  .landing-nav-link {
+    font-size: 0.84rem;
+  }
+
+  .hero-section {
+    padding: 70px 28px 50px;
+  }
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
+/* =============================================
+   LARGE MOBILE (481px – 768px)
+   ============================================= */
 @media (max-width: 768px) {
   .landing-hamburger-btn {
     display: inline-flex;
   }
   .landing-nav {
-    padding: 0 16px;
     height: 60px;
+    padding: 0 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
   .landing-nav-links {
     display: none;
   }
+  /* Full-screen mobile menu */
   .landing-nav-links.mobile-open {
     display: flex;
     position: fixed;
@@ -315,56 +401,148 @@
     right: 0;
     bottom: 0;
     background: var(--bg-glass-heavy);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: var(--blur-xl);
+    -webkit-backdrop-filter: var(--blur-xl);
     flex-direction: column;
     padding: 24px 20px;
-    gap: 18px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    gap: 6px;
     align-items: flex-start;
     z-index: 999;
-    animation: fadeIn 0.2s ease-out;
+    animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
   }
   .landing-nav-links.mobile-open .landing-nav-link {
     font-size: 1.1rem;
     font-weight: 600;
     width: 100%;
-    padding: 8px 0;
+    padding: 12px 0;
     border-bottom: 1px solid var(--border-subtle);
+    min-height: 44px;
   }
 
   .hero-section {
-    padding: 50px 16px 36px;
-  }
-  .hero-headline {
-    font-size: clamp(1.8rem, 6vw + 0.6rem, 2.6rem);
-    margin-bottom: 16px;
-  }
-  .hero-subheadline {
-    font-size: 0.95rem;
-    margin-bottom: 24px;
+    padding: 50px 16px 32px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
   .hero-actions {
     flex-direction: column;
     width: 100%;
-    gap: 12px;
+    max-width: 340px;
+    gap: 10px;
   }
   .hero-actions .btn {
     width: 100%;
+    justify-content: center;
+    min-height: 48px;
   }
   .hero-preview-frame {
-    margin-top: 36px;
+    margin-top: 32px;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
   }
 
-  .features-section, .pricing-section, .seo-tool-header, .seo-tool-faq {
-    padding: 40px 16px;
-  }
   .features-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
   }
   .pricing-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
   }
 }
 
+/* =============================================
+   STANDARD MOBILE (361px – 480px)
+   ============================================= */
+@media (max-width: 480px) {
+  .landing-nav {
+    height: 56px;
+  }
+  .hero-section {
+    padding: 40px 14px 28px;
+  }
+  .hero-glow-bg {
+    opacity: 0.6;
+    filter: blur(50px);
+  }
+
+  .feature-card {
+    padding: 18px 16px;
+  }
+  .feature-card-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 1.2rem;
+    margin-bottom: 14px;
+  }
+
+  .pricing-card {
+    padding: 22px 18px;
+  }
+
+  .section-header {
+    margin-bottom: 24px;
+  }
+
+  .seo-tool-faq,
+  .seo-tool-header {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+/* =============================================
+   SMALL PHONE (< 360px) — Galaxy A, older iPhones
+   ============================================= */
+@media (max-width: 360px) {
+  .landing-nav {
+    height: 52px;
+    padding: 0 12px;
+  }
+  .hero-section {
+    padding: 32px 12px 24px;
+  }
+  .hero-actions .btn-lg {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+  }
+  .feature-card,
+  .pricing-card {
+    padding: 16px 14px;
+  }
+}
+
+/* =============================================
+   LANDSCAPE PHONE (short height, wide width)
+   ============================================= */
+@media (max-height: 500px) and (orientation: landscape) {
+  .landing-nav {
+    height: 48px;
+    position: relative; /* don't sticky on landscape phone */
+  }
+  .hero-section {
+    padding: 24px 20px;
+  }
+  .hero-glow-bg {
+    display: none;
+  }
+  .landing-nav-links.mobile-open {
+    top: 48px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px;
+    overflow-y: auto;
+    max-height: calc(100vh - 48px);
+  }
+  .landing-nav-links.mobile-open .landing-nav-link {
+    font-size: 0.95rem;
+    width: auto;
+    border-bottom: none;
+    padding: 8px 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+  }
+}
