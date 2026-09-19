@@ -355,7 +355,27 @@ async function runSuite() {
           return {
             save() {}, restore() {}, clearRect() {}, translate() {}, scale() {}, rotate() {},
             beginPath() {}, moveTo() {}, lineTo() {}, arc() {}, fill() {}, stroke() {},
-            fillRect() {}, strokeRect() {}, drawImage() {}, setLineDash() {}
+            fillRect() {}, strokeRect() {}, drawImage() {}, setLineDash() {},
+            createLinearGradient() { return { addColorStop() {} }; },
+            createRadialGradient() { return { addColorStop() {} }; },
+            getImageData(x, y, w, h) {
+              const width = w || el.width || 100;
+              const height = h || el.height || 100;
+              const data = new Uint8ClampedArray(width * height * 4);
+              for (let i = 0; i < data.length; i += 4) {
+                data[i] = 120;
+                data[i + 1] = 140;
+                data[i + 2] = 200;
+                data[i + 3] = 255;
+              }
+              return { width, height, data };
+            },
+            createImageData(w, h) {
+              const width = w || el.width || 100;
+              const height = h || el.height || 100;
+              return { width, height, data: new Uint8ClampedArray(width * height * 4) };
+            },
+            putImageData(imgData, x, y) {}
           };
         },
         addEventListener() {},
@@ -482,6 +502,60 @@ async function runSuite() {
   const mockPhoto = { width: 400, height: 300, naturalWidth: 400, naturalHeight: 300 };
   const processedCutout = BackgroundRemovalEngine.process(mockPhoto, { mode: 'ai_photo', sensitivity: 70 });
   assert(processedCutout && (processedCutout.processed || processedCutout.width === 400), 'BackgroundRemovalEngine processes photo cutout cleanly');
+
+  // -----------------------------------------------------------------
+  // 12. AI PHOTO ENHANCER & SUPER-RESOLUTION (LOW TO HIGH QUALITY)
+  // -----------------------------------------------------------------
+  console.log('\n--- 12. AI Photo Enhancer & Super-Resolution (Low to High Quality) ---');
+  const { ImageUpscalerEngine } = await import('./client/src/js/engines/upscaler.js');
+
+  // Verify presets
+  assert(ImageUpscalerEngine.presets && typeof ImageUpscalerEngine.presets === 'object', 'ImageUpscalerEngine presets library exists');
+  const presetKeys = ['auto', 'face_portrait', 'photo_restore', 'product_ecommerce', 'landscape_nature', 'art_illustration'];
+  const allPresetsExist = presetKeys.every(k => !!ImageUpscalerEngine.presets[k]);
+  assert(allPresetsExist, 'All 6 quality enhancement profiles registered (auto, face, restore, product, landscape, art)');
+
+  // Verify preset parameters
+  const restorePreset = ImageUpscalerEngine.presets['photo_restore'];
+  assert(restorePreset.sharpness === 92 && restorePreset.deblur === 75 && restorePreset.contrast === 45, 'photo_restore preset defines aggressive clarity, deblur and contrast parameters');
+
+  // Test resolution tier logic
+  const mockLowRes = { width: 640, height: 480, naturalWidth: 640, naturalHeight: 480 };
+  const hdRes = ImageUpscalerEngine.getResolution(mockLowRes, 'HD');
+  assert(hdRes.height === 1080 && hdRes.width === Math.round(1080 * (640 / 480)), 'getResolution(HD) scales 4:3 photo to 1080p target height');
+
+  const qhdRes = ImageUpscalerEngine.getResolution(mockLowRes, '2K');
+  assert(qhdRes.width === 2560 && qhdRes.height === Math.round(2560 / (640 / 480)), 'getResolution(2K) scales photo to 2560px QHD width');
+
+  const uhdRes = ImageUpscalerEngine.getResolution(mockLowRes, '4K');
+  assert(uhdRes.width === 3840, 'getResolution(4K) scales photo to 3840px 4K UHD width');
+
+  const cinemaRes = ImageUpscalerEngine.getResolution(mockLowRes, '8K');
+  assert(cinemaRes.width === 7680, 'getResolution(8K) scales photo to 7680px 8K Cinema width');
+
+  const ppiRes = ImageUpscalerEngine.getResolution(mockLowRes, '300PPI');
+  assert(ppiRes.width === 640 * 4 && ppiRes.height === 480 * 4, 'getResolution(300PPI) calculates 4x master print scale factor');
+
+  const scale8x = ImageUpscalerEngine.getResolution(mockLowRes, '8x');
+  assert(scale8x.width === 640 * 8 && scale8x.height === 480 * 8, 'getResolution(8x) calculates 8x scale factor');
+
+  // Test execution with full enhancement pipeline
+  const enhancedCanvas = ImageUpscalerEngine.process(mockLowRes, '4K', {
+    profile: 'photo_restore',
+    contrast: 30,
+    vibrance: 25,
+    deblur: 50,
+    edgeClarity: 60,
+    sharpness: 85
+  });
+  assert(enhancedCanvas && enhancedCanvas.width === 3840, 'ImageUpscalerEngine.process() completed 4K Super-Resolution transformation');
+
+  // Test enhanceLowQualityPhoto convenience helper
+  const helperCanvas = ImageUpscalerEngine.enhanceLowQualityPhoto(mockLowRes, {
+    profile: 'face_portrait',
+    targetResolution: 'HD'
+  });
+  assert(helperCanvas && helperCanvas.height === 1080, 'ImageUpscalerEngine.enhanceLowQualityPhoto() executed end-to-end HD conversion');
 
 
   // -----------------------------------------------------------------

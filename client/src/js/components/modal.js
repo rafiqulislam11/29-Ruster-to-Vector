@@ -248,6 +248,737 @@ export class ModalManager {
 
   /**
    * ──────────────────────────────────────────────────────────────────
+   * AI PHOTO ENHANCER — Low Quality → High Quality Converter
+   * Upscale: 2x, 4x, 8x, 2K, 4K | Denoise | Sharpen | Artifact Remove
+   * Batch: up to 50 images | Export: JPEG, PNG, WebP | ZIP download
+   * ──────────────────────────────────────────────────────────────────
+   */
+  static openPhotoEnhancerModal() {
+    const modalEl = document.createElement('div');
+    modalEl.className = 'modal-backdrop';
+    modalEl.innerHTML = `
+      <div class="modal-container" style="max-width:720px; max-height:92vh; display:flex; flex-direction:column;">
+
+        <!-- Header -->
+        <div class="modal-header" style="flex-shrink:0; background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(6,182,212,0.1)); border-bottom:1px solid rgba(99,102,241,0.2);">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,#6366f1,#06b6d4); display:flex; align-items:center; justify-content:center; font-size:1.4rem; box-shadow:0 4px 14px rgba(99,102,241,0.4);">✨</div>
+            <div>
+              <h3 class="modal-title">AI Photo Enhancer</h3>
+              <div style="font-size:0.7rem; color:var(--accent-secondary); font-weight:700; letter-spacing:0.6px;">LOW QUALITY → HIGH QUALITY • UPSCALE • DENOISE • SHARPEN</div>
+            </div>
+          </div>
+          <button class="btn-icon" id="phe-close">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
+
+          <!-- Step 1: Upload -->
+          <div>
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Step 1 — Upload Low Quality Photos (max 200)</div>
+            <div id="phe-dropzone" style="border:2px dashed rgba(99,102,241,0.4); border-radius:12px; padding:28px; text-align:center; cursor:pointer; background:rgba(99,102,241,0.04); transition:all 0.2s;">
+              <div style="font-size:2.5rem; margin-bottom:8px;">📸</div>
+              <div style="font-weight:700; font-size:1rem; margin-bottom:4px; color:var(--text-primary);">Drag & Drop Low Quality Photos Here</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">JPG, PNG, WEBP — Batch up to 200 images simultaneously</div>
+              <div style="display:flex; justify-content:center; gap:8px;">
+                <button class="btn btn-secondary btn-sm" id="phe-browse">Browse Files</button>
+              </div>
+              <input type="file" id="phe-file-input" multiple accept="image/jpeg,image/png,image/webp" style="display:none;" />
+            </div>
+
+            <!-- Stats bar -->
+            <div id="phe-stats-bar" style="display:none; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); border-radius:8px; padding:10px 14px; margin-top:10px; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-weight:700; font-size:0.88rem; color:var(--text-primary);" id="phe-stats-count">0 photos selected</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);" id="phe-stats-size">Ready for enhancement</div>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="phe-clear" style="font-size:0.72rem; padding:3px 8px;">Clear</button>
+            </div>
+
+            <!-- Thumbnail strip -->
+            <div id="phe-thumb-strip" style="display:flex; gap:6px; flex-wrap:wrap; max-height:80px; overflow:hidden; margin-top:8px;"></div>
+            <div id="phe-more-label" style="font-size:0.72rem; color:var(--accent-secondary); font-weight:600; display:none; margin-top:4px;"></div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle);"></div>
+
+          <!-- Step 2: Before/After Preview -->
+          <div id="phe-preview-section" style="display:none;">
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Preview — Before / After</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div style="border-radius:8px; overflow:hidden; background:var(--bg-tertiary); position:relative;">
+                <div style="position:absolute; top:6px; left:8px; font-size:0.65rem; font-weight:700; background:rgba(0,0,0,0.6); color:#fff; padding:2px 7px; border-radius:4px; z-index:1;">ORIGINAL LOW-RES</div>
+                <canvas id="phe-before-canvas" style="width:100%; display:block;"></canvas>
+              </div>
+              <div style="border-radius:8px; overflow:hidden; background:var(--bg-tertiary); position:relative;">
+                <div style="position:absolute; top:6px; left:8px; font-size:0.65rem; font-weight:700; background:linear-gradient(90deg,#6366f1,#06b6d4); color:#fff; padding:2px 7px; border-radius:4px; z-index:1;">✨ ENHANCED HD/4K</div>
+                <canvas id="phe-after-canvas" style="width:100%; display:block;"></canvas>
+                <div id="phe-preview-loader" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); font-size:0.8rem; color:#fff;">⏳ Processing...</div>
+              </div>
+            </div>
+            <div id="phe-preview-info" style="font-size:0.72rem; color:var(--text-muted); margin-top:6px; text-align:center;"></div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle);"></div>
+
+          <!-- 1-Click AI Presets -->
+          <div>
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">1-Click AI Quality Preset</div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:6px;">
+              <button class="phe-preset-btn active" data-profile="auto" style="background:rgba(99,102,241,0.2); border:2px solid var(--accent-primary); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-weight:700; font-size:0.75rem; color:var(--text-primary);">🌟 Smart Auto</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Balanced All-in-One</div>
+              </button>
+              <button class="phe-preset-btn" data-profile="face_portrait" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-weight:700; font-size:0.75rem; color:var(--text-primary);">👤 Face & Portrait</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Sharp eyes, smooth skin</div>
+              </button>
+              <button class="phe-preset-btn" data-profile="photo_restore" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-weight:700; font-size:0.75rem; color:var(--text-primary);">📷 Blurry / Low-Res</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Max deblur & restore</div>
+              </button>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+              <button class="phe-preset-btn" data-profile="product_ecommerce" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-weight:700; font-size:0.75rem; color:var(--text-primary);">🛍️ Product / Studio</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Crisp edges, pure tones</div>
+              </button>
+              <button class="phe-preset-btn" data-profile="landscape_nature" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-weight:700; font-size:0.75rem; color:var(--text-primary);">🏞️ Landscape & HDR</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Vibrant nature details</div>
+              </button>
+              <button class="phe-preset-btn" data-profile="art_illustration" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-weight:700; font-size:0.75rem; color:var(--text-primary);">🎨 Art & Anime</div>
+                <div style="font-size:0.6rem; color:var(--text-muted);">Crisp lines, vivid color</div>
+              </button>
+            </div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle);"></div>
+
+          <!-- Step 3: Upscale Tier -->
+          <div>
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 2 — Upscale Resolution</div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:6px;" id="phe-tier-grid">
+              <button class="phe-tier-btn" data-tier="2x" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🔍</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">2×</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">Fast</div>
+              </button>
+              <button class="phe-tier-btn active" data-tier="4x" style="background:rgba(99,102,241,0.2); border:2px solid var(--accent-primary); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🔎</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">4×</div>
+                <div style="font-size:0.58rem; color:var(--accent-secondary);">Recommended</div>
+              </button>
+              <button class="phe-tier-btn" data-tier="8x" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🚀</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">8×</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">Ultra Super-Res</div>
+              </button>
+              <button class="phe-tier-btn" data-tier="HD" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🖥️</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">HD</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">1080p</div>
+              </button>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+              <button class="phe-tier-btn" data-tier="2K" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">📺</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">2K</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">QHD</div>
+              </button>
+              <button class="phe-tier-btn" data-tier="4K" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🎬</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">4K</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">Ultra HD</div>
+              </button>
+              <button class="phe-tier-btn" data-tier="8K" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🌟</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--text-primary);">8K</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">Cinema</div>
+              </button>
+              <button class="phe-tier-btn" data-tier="300PPI" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:8px 4px; cursor:pointer; text-align:center;">
+                <div style="font-size:1rem;">🖨️</div>
+                <div style="font-weight:700; font-size:0.72rem; color:var(--accent-secondary);">300 PPI</div>
+                <div style="font-size:0.58rem; color:var(--text-muted);">Print Master</div>
+              </button>
+            </div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle);"></div>
+
+          <!-- Step 4: Enhancement Sliders -->
+          <div>
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 3 — AI Enhancement Settings</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">🔍 Sharpness</label>
+                  <span id="phe-sharp-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">80</span>
+                </div>
+                <input type="range" id="phe-sharpness" min="0" max="100" value="80" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">✨ Detail Boost</label>
+                  <span id="phe-detail-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">70</span>
+                </div>
+                <input type="range" id="phe-detail" min="0" max="100" value="70" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">🌿 Denoise & Blocks</label>
+                  <span id="phe-noise-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">35</span>
+                </div>
+                <input type="range" id="phe-noise" min="0" max="100" value="35" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">🎨 Dynamic Contrast</label>
+                  <span id="phe-contrast-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">35</span>
+                </div>
+                <input type="range" id="phe-contrast" min="0" max="100" value="35" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">🌈 Color Vibrancy</label>
+                  <span id="phe-vibrance-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">30</span>
+                </div>
+                <input type="range" id="phe-vibrance" min="0" max="100" value="30" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">💎 Edge Clarity</label>
+                  <span id="phe-edge-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">65</span>
+                </div>
+                <input type="range" id="phe-edge" min="0" max="100" value="65" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">🎯 Deblur Strength</label>
+                  <span id="phe-deblur-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">45</span>
+                </div>
+                <input type="range" id="phe-deblur" min="0" max="100" value="45" style="width:100%;" />
+              </div>
+
+              <div style="background:var(--bg-tertiary); padding:10px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                  <label style="font-size:0.78rem; font-weight:600;">🧹 Artifact Cleaning</label>
+                  <span id="phe-artifact-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary);">40</span>
+                </div>
+                <input type="range" id="phe-artifact" min="0" max="100" value="40" style="width:100%;" />
+              </div>
+
+            </div>
+
+            <!-- Preview button -->
+            <button class="btn btn-glass btn-sm" id="phe-preview-btn" style="margin-top:10px; border-color:var(--accent-secondary); color:var(--accent-secondary); display:none;">👁 Update Preview</button>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle);"></div>
+
+          <!-- Step 5: Export Format -->
+          <div>
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Step 4 — Export Format</div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;" id="phe-fmt-grid">
+              <button class="phe-fmt-btn" data-fmt="jpeg" style="background:rgba(99,102,241,0.2); border:2px solid var(--accent-primary); border-radius:8px; padding:10px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">📷</div>
+                <div style="font-weight:700; font-size:0.78rem; color:var(--text-primary); margin-top:3px;">JPEG</div>
+                <div style="font-size:0.62rem; color:var(--text-muted);">Small file, high quality</div>
+              </button>
+              <button class="phe-fmt-btn" data-fmt="png" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:10px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">🖼️</div>
+                <div style="font-weight:700; font-size:0.78rem; color:var(--text-primary); margin-top:3px;">PNG</div>
+                <div style="font-size:0.62rem; color:var(--text-muted);">Lossless quality</div>
+              </button>
+              <button class="phe-fmt-btn" data-fmt="webp" style="background:var(--bg-tertiary); border:2px solid var(--border-subtle); border-radius:8px; padding:10px; cursor:pointer; text-align:center; transition:all 0.15s;">
+                <div style="font-size:1.1rem;">🌐</div>
+                <div style="font-weight:700; font-size:0.78rem; color:var(--text-primary); margin-top:3px;">WebP</div>
+                <div style="font-size:0.62rem; color:var(--text-muted);">Best compression</div>
+              </button>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+              <label style="font-size:0.78rem; font-weight:600; white-space:nowrap;">JPEG Quality:</label>
+              <input type="range" id="phe-jpeg-q" min="75" max="100" value="95" style="flex:1;" />
+              <span id="phe-jpeg-q-val" style="font-size:0.78rem; font-weight:700; color:var(--accent-secondary); min-width:24px;">95</span>
+            </div>
+          </div>
+
+          <div style="height:1px; background:var(--border-subtle);"></div>
+
+          <!-- Step 6: Progress -->
+          <div id="phe-progress-section" style="display:none;">
+            <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Step 5 — Processing</div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px;">
+              <div style="background:var(--bg-tertiary); border-radius:8px; padding:10px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:700; color:var(--accent-primary);" id="phe-stat-done">0</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">Completed</div>
+              </div>
+              <div style="background:var(--bg-tertiary); border-radius:8px; padding:10px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:700; color:var(--accent-secondary);" id="phe-stat-speed">0.0</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">img/sec</div>
+              </div>
+              <div style="background:var(--bg-tertiary); border-radius:8px; padding:10px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:700; color:var(--status-success);" id="phe-stat-eta">–</div>
+                <div style="font-size:0.7rem; color:var(--text-muted);">ETA (sec)</div>
+              </div>
+            </div>
+            <div style="background:var(--bg-primary); border-radius:6px; overflow:hidden; height:10px; margin-bottom:6px;">
+              <div id="phe-prog-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#6366f1,#06b6d4); transition:width 0.15s ease-out; border-radius:6px;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">
+              <span id="phe-prog-label">0 / 0 images</span>
+              <span id="phe-prog-pct" style="font-weight:700; color:var(--accent-secondary);">0%</span>
+            </div>
+            <div id="phe-log" style="background:rgba(0,0,0,0.35); border-radius:8px; padding:8px 12px; max-height:100px; overflow-y:auto; font-family:var(--font-mono); font-size:0.71rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
+              <div style="color:var(--accent-secondary);">[Ready] Configure settings and press ✨ Enhance All</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer" style="flex-shrink:0; justify-content:space-between;">
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" id="phe-pause" style="display:none;">⏸ Pause</button>
+            <button class="btn btn-secondary btn-sm" id="phe-cancel" style="display:none; color:var(--status-danger);">✕ Cancel</button>
+            <button class="btn btn-secondary btn-sm" id="phe-close-footer">Close</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span id="phe-file-badge" style="font-size:0.75rem; color:var(--text-muted); display:none;"></span>
+            <button class="btn btn-primary btn-sm" id="phe-start" disabled style="box-shadow:0 0 14px rgba(99,102,241,0.4);">
+              ✨ Enhance All
+            </button>
+            <button class="btn btn-sm" id="phe-download" style="display:none; background:#06b6d4; color:#000; font-weight:700;">
+              📦 Download ZIP
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalEl);
+
+    // ── Refs ──
+    const closeModal     = () => modalEl.remove();
+    modalEl.querySelector('#phe-close').onclick        = closeModal;
+    modalEl.querySelector('#phe-close-footer').onclick = closeModal;
+
+    const dropzone       = modalEl.querySelector('#phe-dropzone');
+    const fileInput      = modalEl.querySelector('#phe-file-input');
+    const browseBtn      = modalEl.querySelector('#phe-browse');
+    const statsBar       = modalEl.querySelector('#phe-stats-bar');
+    const statsCount     = modalEl.querySelector('#phe-stats-count');
+    const statsSizeEl    = modalEl.querySelector('#phe-stats-size');
+    const clearBtn       = modalEl.querySelector('#phe-clear');
+    const thumbStrip     = modalEl.querySelector('#phe-thumb-strip');
+    const moreLabel      = modalEl.querySelector('#phe-more-label');
+    const previewSection = modalEl.querySelector('#phe-preview-section');
+    const beforeCanvas   = modalEl.querySelector('#phe-before-canvas');
+    const afterCanvas    = modalEl.querySelector('#phe-after-canvas');
+    const previewLoader  = modalEl.querySelector('#phe-preview-loader');
+    const previewInfo    = modalEl.querySelector('#phe-preview-info');
+    const previewBtn     = modalEl.querySelector('#phe-preview-btn');
+    const startBtn       = modalEl.querySelector('#phe-start');
+    const pauseBtn       = modalEl.querySelector('#phe-pause');
+    const cancelBtn      = modalEl.querySelector('#phe-cancel');
+    const downloadBtn    = modalEl.querySelector('#phe-download');
+    const progressSec    = modalEl.querySelector('#phe-progress-section');
+    const progBar        = modalEl.querySelector('#phe-prog-bar');
+    const progLabel      = modalEl.querySelector('#phe-prog-label');
+    const progPct        = modalEl.querySelector('#phe-prog-pct');
+    const statDone       = modalEl.querySelector('#phe-stat-done');
+    const statSpeed      = modalEl.querySelector('#phe-stat-speed');
+    const statEta        = modalEl.querySelector('#phe-stat-eta');
+    const logEl          = modalEl.querySelector('#phe-log');
+    const fileBadge      = modalEl.querySelector('#phe-file-badge');
+
+    // Sliders
+    const sharpSlider    = modalEl.querySelector('#phe-sharpness');
+    const detailSlider   = modalEl.querySelector('#phe-detail');
+    const noiseSlider    = modalEl.querySelector('#phe-noise');
+    const artifactSlider = modalEl.querySelector('#phe-artifact');
+    const contrastSlider = modalEl.querySelector('#phe-contrast');
+    const edgeSlider     = modalEl.querySelector('#phe-edge');
+    const vibranceSlider = modalEl.querySelector('#phe-vibrance');
+    const deblurSlider   = modalEl.querySelector('#phe-deblur');
+    [
+      ['#phe-sharpness','#phe-sharp-val'],
+      ['#phe-detail','#phe-detail-val'],
+      ['#phe-noise','#phe-noise-val'],
+      ['#phe-artifact','#phe-artifact-val'],
+      ['#phe-contrast','#phe-contrast-val'],
+      ['#phe-edge','#phe-edge-val'],
+      ['#phe-vibrance','#phe-vibrance-val'],
+      ['#phe-deblur','#phe-deblur-val'],
+      ['#phe-jpeg-q','#phe-jpeg-q-val'],
+    ].forEach(([sl, vl]) => {
+      const s = modalEl.querySelector(sl);
+      const v = modalEl.querySelector(vl);
+      if (s && v) s.oninput = () => { v.textContent = s.value; };
+    });
+
+    let selectedFiles = [];
+    let selectedTier  = '4x';
+    let selectedFmt   = 'jpeg';
+    let selectedProfile = 'auto';
+    let zipBlob       = null;
+    const controller  = { isPaused: false, isCancelled: false };
+
+    // ── Preset pills ──
+    modalEl.querySelectorAll('.phe-preset-btn').forEach(btn => {
+      btn.onclick = () => {
+        modalEl.querySelectorAll('.phe-preset-btn').forEach(b => {
+          b.style.background  = 'var(--bg-tertiary)';
+          b.style.borderColor = 'var(--border-subtle)';
+          b.classList.remove('active');
+        });
+        btn.style.background  = 'rgba(99,102,241,0.2)';
+        btn.style.borderColor = 'var(--accent-primary)';
+        btn.classList.add('active');
+        selectedProfile = btn.dataset.profile;
+        const p = ImageUpscalerEngine.presets[selectedProfile];
+        if (p) {
+          if (sharpSlider) { sharpSlider.value = p.sharpness; modalEl.querySelector('#phe-sharp-val').textContent = p.sharpness; }
+          if (detailSlider) { detailSlider.value = p.detail; modalEl.querySelector('#phe-detail-val').textContent = p.detail; }
+          if (noiseSlider) { noiseSlider.value = p.noiseReduction; modalEl.querySelector('#phe-noise-val').textContent = p.noiseReduction; }
+          if (contrastSlider) { contrastSlider.value = p.contrast; modalEl.querySelector('#phe-contrast-val').textContent = p.contrast; }
+          if (edgeSlider) { edgeSlider.value = p.edgeClarity; modalEl.querySelector('#phe-edge-val').textContent = p.edgeClarity; }
+          if (vibranceSlider) { vibranceSlider.value = p.vibrance; modalEl.querySelector('#phe-vibrance-val').textContent = p.vibrance; }
+          if (deblurSlider) { deblurSlider.value = p.deblur; modalEl.querySelector('#phe-deblur-val').textContent = p.deblur; }
+        }
+        if (selectedFiles.length > 0) runPreview();
+      };
+    });
+
+    // ── Tier pills ──
+    modalEl.querySelectorAll('.phe-tier-btn').forEach(btn => {
+      btn.onclick = () => {
+        modalEl.querySelectorAll('.phe-tier-btn').forEach(b => {
+          b.style.background  = 'var(--bg-tertiary)';
+          b.style.borderColor = 'var(--border-subtle)';
+          b.classList.remove('active');
+        });
+        btn.style.background  = 'rgba(99,102,241,0.2)';
+        btn.style.borderColor = 'var(--accent-primary)';
+        btn.classList.add('active');
+        selectedTier = btn.dataset.tier;
+        if (selectedFiles.length > 0) runPreview();
+      };
+    });
+
+    // ── Format pills ──
+    modalEl.querySelectorAll('.phe-fmt-btn').forEach(btn => {
+      btn.onclick = () => {
+        modalEl.querySelectorAll('.phe-fmt-btn').forEach(b => {
+          b.style.background  = 'var(--bg-tertiary)';
+          b.style.borderColor = 'var(--border-subtle)';
+        });
+        btn.style.background  = 'rgba(99,102,241,0.2)';
+        btn.style.borderColor = 'var(--accent-primary)';
+        selectedFmt = btn.dataset.fmt;
+      };
+    });
+
+    // ── File handling ──
+    const MAX = 200;
+    function handleFiles(f) {
+      const imgs = Array.from(f).filter(x => x.type.startsWith('image/'));
+      if (imgs.length > MAX) {
+        toast.error(`Max ${MAX} images. First ${MAX} selected.`);
+        selectedFiles = imgs.slice(0, MAX);
+      } else {
+        selectedFiles = imgs;
+      }
+      renderList();
+      if (selectedFiles.length > 0) setTimeout(runPreview, 100);
+    }
+
+    function renderList() {
+      thumbStrip.innerHTML = '';
+      moreLabel.style.display = 'none';
+      if (!selectedFiles.length) {
+        statsBar.style.display = 'none';
+        startBtn.disabled = true;
+        fileBadge.style.display = 'none';
+        previewSection.style.display = 'none';
+        previewBtn.style.display = 'none';
+        return;
+      }
+      const totalKB = selectedFiles.reduce((s, f) => s + (f.size || 10000), 0) / 1024;
+      statsBar.style.display  = 'flex';
+      statsCount.textContent  = `${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} selected`;
+      statsSizeEl.textContent = `Total: ${totalKB.toFixed(0)} KB`;
+      startBtn.disabled       = false;
+      fileBadge.style.display = 'inline';
+      fileBadge.textContent   = `${selectedFiles.length} files`;
+      previewBtn.style.display= 'inline-flex';
+
+      const maxThumbs = 8;
+      selectedFiles.slice(0, maxThumbs).forEach((f, i) => {
+        const thumb = document.createElement('div');
+        thumb.style.cssText = 'width:48px;height:38px;border-radius:5px;overflow:hidden;border:1px solid var(--border-subtle);background:var(--bg-tertiary);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--text-muted);flex-shrink:0;';
+        const url = URL.createObjectURL(f);
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        img.onload = () => URL.revokeObjectURL(url);
+        thumb.appendChild(img);
+        thumbStrip.appendChild(thumb);
+      });
+      if (selectedFiles.length > maxThumbs) {
+        moreLabel.style.display = 'block';
+        moreLabel.textContent = `+${selectedFiles.length - maxThumbs} more`;
+      }
+    }
+
+    // ── Before/After Live Preview (first image only) ──
+    async function runPreview() {
+      if (!selectedFiles.length) return;
+      previewSection.style.display = 'block';
+      previewLoader.style.display  = 'flex';
+
+      try {
+        const file = selectedFiles[0];
+        const url  = URL.createObjectURL(file);
+        const img  = new Image();
+        img.src    = url;
+        await img.decode();
+        URL.revokeObjectURL(url);
+
+        const origW = img.naturalWidth;
+        const origH = img.naturalHeight;
+
+        // Draw BEFORE
+        beforeCanvas.width  = origW;
+        beforeCanvas.height = origH;
+        beforeCanvas.getContext('2d').drawImage(img, 0, 0);
+
+        // Process AFTER
+        const enhanced = ImageUpscalerEngine.process(img, selectedTier, {
+          profile:           selectedProfile,
+          sharpness:         parseInt(sharpSlider.value,    10),
+          detailEnhancement: parseInt(detailSlider.value,   10),
+          noiseReduction:    parseInt(noiseSlider.value,    10),
+          artifactReduction: parseInt(artifactSlider.value, 10),
+          edgeEnhancement:   parseInt(edgeSlider.value,     10),
+          contrast:          parseInt(contrastSlider.value, 10),
+          vibrance:          parseInt(vibranceSlider.value, 10),
+          deblur:            parseInt(deblurSlider.value,   10)
+        });
+
+        afterCanvas.width  = enhanced.width;
+        afterCanvas.height = enhanced.height;
+        afterCanvas.getContext('2d').drawImage(enhanced, 0, 0);
+
+        previewInfo.textContent = `Before: ${origW}×${origH}px  →  After: ${enhanced.width}×${enhanced.height}px (${selectedProfile.toUpperCase()} • ${selectedTier})`;
+      } catch (e) {
+        console.warn('[PHE Preview]', e);
+      } finally {
+        previewLoader.style.display = 'none';
+      }
+    }
+
+    previewBtn.onclick = runPreview;
+
+    // Update preview on any slider change
+    let previewTimer = null;
+    [sharpSlider, detailSlider, noiseSlider, artifactSlider, contrastSlider, edgeSlider, vibranceSlider, deblurSlider].forEach(sl => {
+      if (!sl) return;
+      sl.addEventListener('input', () => {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => { if (selectedFiles.length) runPreview(); }, 400);
+      });
+    });
+
+    // ── Drag & Drop ──
+    dropzone.ondragover  = e => { e.preventDefault(); dropzone.style.borderColor = 'var(--accent-primary)'; };
+    dropzone.ondragleave = () => { dropzone.style.borderColor = 'rgba(99,102,241,0.4)'; };
+    dropzone.ondrop      = e => { e.preventDefault(); dropzone.style.borderColor = 'rgba(99,102,241,0.4)'; handleFiles(e.dataTransfer.files); };
+    browseBtn.onclick    = e => { e.stopPropagation(); fileInput.click(); };
+    fileInput.onchange   = () => { if (fileInput.files.length) handleFiles(fileInput.files); };
+    dropzone.onclick     = e => { if (e.target.id !== 'phe-browse') fileInput.click(); };
+    clearBtn.onclick     = () => { selectedFiles = []; renderList(); };
+
+    // ── Pause / Cancel ──
+    pauseBtn.onclick  = () => { controller.isPaused = !controller.isPaused; pauseBtn.textContent = controller.isPaused ? '▶ Resume' : '⏸ Pause'; };
+    cancelBtn.onclick = () => { controller.isCancelled = true; };
+
+    // ── Download ──
+    downloadBtn.onclick = () => {
+      if (!zipBlob) return;
+      const u = URL.createObjectURL(zipBlob);
+      const a = Object.assign(document.createElement('a'), { href: u, download: `enhanced-photos-${selectedFiles.length}.zip` });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+
+    // ── START ──
+    startBtn.onclick = async () => {
+      if (!selectedFiles.length) return;
+
+      controller.isPaused   = false;
+      controller.isCancelled= false;
+      startBtn.style.display= 'none';
+      pauseBtn.style.display= 'inline-flex';
+      cancelBtn.style.display='inline-flex';
+      progressSec.style.display= 'block';
+      progressSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      const sharpness  = parseInt(sharpSlider.value,    10);
+      const detail     = parseInt(detailSlider.value,   10);
+      const noise      = parseInt(noiseSlider.value,    10);
+      const artifact   = parseInt(artifactSlider.value, 10);
+      const edge       = parseInt(edgeSlider.value,     10);
+      const contrast   = parseInt(contrastSlider.value, 10);
+      const vibrance   = parseInt(vibranceSlider.value, 10);
+      const deblur     = parseInt(deblurSlider.value,   10);
+      const profile    = selectedProfile;
+      const jpegQ      = parseInt(modalEl.querySelector('#phe-jpeg-q').value, 10) / 100;
+      const tier       = selectedTier;
+      const fmt        = selectedFmt;
+      const total      = selectedFiles.length;
+      let processed    = 0;
+      let failed       = 0;
+      const startTime  = Date.now();
+
+      logEl.innerHTML = `<div style="color:var(--accent-secondary);">[Pipeline] Starting ✨ AI Enhancement for ${total} photo(s)... Tier: ${tier} • Profile: ${profile.toUpperCase()}</div>`;
+
+      const { default: JSZipModule } = await import('jszip');
+      const zip    = new JSZipModule();
+      const folder = zip.folder('enhanced_photos');
+
+      const concurrency = 2; // Lower concurrency for upscaling (memory-intensive)
+      let cursor = 0;
+
+      const worker = async () => {
+        while (cursor < total) {
+          if (controller.isCancelled) break;
+          while (controller.isPaused && !controller.isCancelled) await new Promise(r => setTimeout(r, 200));
+
+          const idx  = cursor++;
+          if (idx >= total) break;
+          const file = selectedFiles[idx];
+          const baseName = (file.name || `photo_${String(idx+1).padStart(3,'0')}.jpg`).replace(/\.[^/.]+$/, '');
+
+          try {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = url;
+            await img.decode();
+            URL.revokeObjectURL(url);
+
+            // AI Upscale + Enhancement Pipeline
+            const enhanced = ImageUpscalerEngine.process(img, tier, {
+              profile,
+              sharpness,
+              detailEnhancement: detail,
+              noiseReduction: noise,
+              artifactReduction: artifact,
+              edgeEnhancement: edge,
+              contrast,
+              vibrance,
+              deblur
+            });
+
+            // Export
+            let blob, outName;
+            if (fmt === 'jpeg') {
+              blob    = await new Promise(res => enhanced.toBlob(res, 'image/jpeg', jpegQ));
+              outName = `${baseName}_enhanced_${tier}.jpg`;
+            } else if (fmt === 'webp') {
+              blob    = await new Promise(res => enhanced.toBlob(res, 'image/webp', 0.95));
+              outName = `${baseName}_enhanced_${tier}.webp`;
+            } else {
+              blob    = await new Promise(res => enhanced.toBlob(res, 'image/png'));
+              outName = `${baseName}_enhanced_${tier}.png`;
+            }
+
+            const buf = await blob.arrayBuffer();
+            folder.file(outName, buf);
+            processed++;
+          } catch (e) {
+            console.warn('[PHE] Failed:', file.name, e);
+            failed++;
+          }
+
+          // Update UI
+          const elapsed   = (Date.now() - startTime) / 1000;
+          const speed     = elapsed > 0 ? (processed / elapsed).toFixed(1) : '0.0';
+          const remaining = total - processed - failed;
+          const eta       = parseFloat(speed) > 0 ? Math.round(remaining / parseFloat(speed)) : 0;
+          const pct       = Math.min(95, Math.round(((processed + failed) / total) * 95));
+
+          progBar.style.width   = pct + '%';
+          progPct.textContent   = pct + '%';
+          progLabel.textContent = `${processed + failed} / ${total} photos`;
+          statDone.textContent  = processed;
+          statSpeed.textContent = speed;
+          statEta.textContent   = eta > 0 ? eta + 's' : '–';
+
+          const li = document.createElement('div');
+          li.textContent = `✓ [${String(processed+failed).padStart(3,'0')}/${total}] ${file.name || baseName}`;
+          logEl.appendChild(li);
+          if (logEl.children.length > 50) logEl.removeChild(logEl.children[0]);
+          logEl.scrollTop = logEl.scrollHeight;
+
+          await new Promise(r => setTimeout(r, 0));
+        }
+      };
+
+      await Promise.all(Array.from({ length: Math.min(concurrency, total) }, worker));
+
+      if (controller.isCancelled) {
+        logEl.appendChild(Object.assign(document.createElement('div'), { textContent: '[Cancelled]', style: 'color:var(--status-danger);' }));
+        pauseBtn.style.display  = 'none';
+        cancelBtn.style.display = 'none';
+        startBtn.style.display  = 'inline-flex';
+        startBtn.disabled       = false;
+        return;
+      }
+
+      progBar.style.width = '97%';
+      logEl.appendChild(Object.assign(document.createElement('div'), { textContent: '[Packaging] Building ZIP...', style: 'color:var(--accent-secondary);' }));
+
+      zip.file('README.txt', [
+        '=== AI Photo Enhancer — Creative Vector Studio ===',
+        `Upscale Tier: ${tier}`,
+        `Total Enhanced: ${processed}`,
+        `Generated: ${new Date().toISOString()}`
+      ].join('\n'));
+
+      zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 4 } });
+
+      progBar.style.width   = '100%';
+      progPct.textContent   = '100%';
+      pauseBtn.style.display  = 'none';
+      cancelBtn.style.display = 'none';
+      downloadBtn.style.display = 'inline-flex';
+
+      const doneMsg = document.createElement('div');
+      doneMsg.textContent = `✅ Done! ${processed} photos enhanced. Click "Download ZIP" to save.`;
+      doneMsg.style.color = 'var(--status-success)';
+      logEl.appendChild(doneMsg);
+
+      toast.success(`✨ ${processed} photos enhanced successfully! Downloading ZIP...`);
+
+      const dlUrl = URL.createObjectURL(zipBlob);
+      const a = Object.assign(document.createElement('a'), { href: dlUrl, download: `ai-enhanced-${processed}-photos.zip` });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+  }
+
+  /**
+   * ──────────────────────────────────────────────────────────────────
    * DEDICATED 200-IMAGE BATCH BACKGROUND REMOVE / CHANGE MODAL
    * Supports: Remove (transparent), Solid Color, Gradient, Custom Image
    * Max: 200 images per batch
@@ -1208,6 +1939,7 @@ export class ModalManager {
           <div class="control-group">
             <label class="control-label">Select Creative Studio Tool for All ${files.length} Images</label>
             <select id="batch-tool-select" style="width:100%; font-weight:600;">
+              <option value="tool_low_to_high" ${activeTool === 'tool_low_to_high' ? 'selected' : ''}>✨ Low → High Quality AI Enhancer (HD / 4K / 8K Super-Res)</option>
               <option value="tool_upscaler" ${activeTool === 'tool_upscaler' ? 'selected' : ''}>AI Image Upscaler (✦ 300 PPI Print Master)</option>
               <option value="tool_vector_convert" ${activeTool.includes('vector') ? 'selected' : ''}>Image → Vector (Authentic Scalable SVG + 300 PPI)</option>
               <option value="tool_bg_ai_photo" ${activeTool === 'tool_bg_ai_photo' || activeTool.includes('bg_') || activeTool.includes('remove') ? 'selected' : ''}>🤖 AI Photo Background Remover (Portraits & Cutouts 300 PPI)</option>

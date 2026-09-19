@@ -139,6 +139,10 @@ export class StudioView {
               <span>${user.credits} Credits</span>
             </div>
 
+            <button class="btn btn-glass btn-sm" id="btn-top-photo-enhancer" style="border-color:rgba(6,182,212,0.6); color:var(--accent-secondary); font-weight:700; background:linear-gradient(135deg, rgba(6,182,212,0.12), rgba(99,102,241,0.12));" title="Low Quality to High Quality Photo Converter (HD/4K/8K Batch)">
+              ✨ High Quality AI
+            </button>
+
             <button class="btn btn-glass btn-sm" id="btn-top-stock-ready" style="border-color:var(--accent-primary); color:var(--accent-secondary); font-weight:700;" title="1-Click Stock Ready Commercial Pipeline & ZIP">
               ⚡ Stock Ready
             </button>
@@ -227,15 +231,20 @@ export class StudioView {
               </div>
             </div>
 
-            <!-- 3. UPSCALE STUDIO -->
+            <!-- 3. PHOTO ENHANCE & UPSCALE STUDIO -->
             <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
               <div class="tool-category-header">
-                <span>UPSCALE STUDIO</span>
-                <span class="badge badge-indigo">1 Tool</span>
+                <span>PHOTO ENHANCE & UPSCALE</span>
+                <span class="badge badge-cyan">2 Tools</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_low_to_high' ? 'active' : ''}" data-tool="tool_low_to_high" style="background:linear-gradient(135deg, rgba(6,182,212,0.14), rgba(99,102,241,0.14)); border:1px solid rgba(6,182,212,0.3); border-radius:6px; margin-bottom:3px;">
+                <span class="tool-item-icon">✨</span>
+                <span style="font-weight:700;">Low → High Quality</span>
+                <span class="badge badge-cyan" style="font-size:0.55rem; padding:1px 4px; margin-left:auto;">AI PRO</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_upscaler' ? 'active' : ''}" data-tool="tool_upscaler">
                 <span class="tool-item-icon">⚡</span>
-                <span>AI Image Upscaler</span>
+                <span>AI Super-Resolution (4K/8K)</span>
               </div>
             </div>
 
@@ -414,6 +423,10 @@ export class StudioView {
 
             <!-- Floating Viewport Controls -->
             <div class="canvas-floating-bar">
+              <button class="btn btn-glass btn-sm" id="btn-floating-enhance" style="border-color:rgba(6,182,212,0.6); color:var(--accent-secondary); font-weight:700; background:linear-gradient(135deg, rgba(6,182,212,0.15), rgba(99,102,241,0.15));" title="1-Click Convert Low Quality Photo to 4K Ultra HD">
+                ✨ Convert to 4K HD
+              </button>
+              <div style="width:1px; height:16px; background:var(--border-medium); margin:0 4px;"></div>
               ${this.viewMode === 'compare' ? `
                 <button class="btn btn-glass btn-sm" id="btn-floating-edit-canvas" style="border-color:var(--accent-secondary); color:var(--accent-secondary); font-weight:700;" title="Send processed result to interactive Canvas Editor">
                   ✏️ Edit on Canvas
@@ -529,6 +542,26 @@ export class StudioView {
         this.render();
       });
     };
+
+    // Top Photo Enhancer Button
+    const topPhotoEnhancerBtn = this.container.querySelector('#btn-top-photo-enhancer');
+    if (topPhotoEnhancerBtn) {
+      topPhotoEnhancerBtn.onclick = () => {
+        ModalManager.openPhotoEnhancerModal();
+      };
+    }
+
+    // Canvas Floating Enhance Button
+    const floatingEnhanceBtn = this.container.querySelector('#btn-floating-enhance');
+    if (floatingEnhanceBtn) {
+      floatingEnhanceBtn.onclick = () => {
+        store.setState({ activeTool: 'tool_low_to_high' });
+        store.setParam('upscaleResolution', '4K');
+        store.setParam('upscaleProfile', 'auto');
+        this.render();
+        toast.info('✨ Transforming Low Quality Photo to 4K Ultra HD...');
+      };
+    }
 
     // Undo / Redo / Reset
     this.container.querySelector('#btn-undo').onclick = () => {
@@ -943,70 +976,127 @@ export class StudioView {
           </div>
         </div>
       `;
-    } else if (tool === 'tool_upscaler') {
+    } else if (tool === 'tool_upscaler' || tool === 'tool_low_to_high') {
       const curW = state.originalWidth || 1200;
       const curH = state.originalHeight || 800;
-      const is300 = p.upscaleResolution === '300PPI';
-      const targetW = is300 ? 4500 : p.upscaleResolution === '8K' ? 7680 : p.upscaleResolution === '6K' ? 6144 : p.upscaleResolution === '4K' ? 3840 : 2560;
-      const targetH = Math.round(targetW * (curH / curW));
+      const aspect = curW / curH;
+
+      let targetW = 3840;
+      if (p.upscaleResolution === '2x') targetW = curW * 2;
+      else if (p.upscaleResolution === '4x') targetW = curW * 4;
+      else if (p.upscaleResolution === '8x') targetW = curW * 8;
+      else if (p.upscaleResolution === 'HD') targetW = 1920;
+      else if (p.upscaleResolution === '2K') targetW = 2560;
+      else if (p.upscaleResolution === '4K') targetW = 3840;
+      else if (p.upscaleResolution === '6K') targetW = 6144;
+      else if (p.upscaleResolution === '8K') targetW = 7680;
+      else if (p.upscaleResolution === '300PPI') targetW = 4500;
+      else if (p.upscaleResolution === '600PPI') targetW = 6000;
+
+      const targetH = Math.round(targetW / aspect);
       const inW = (targetW / 300).toFixed(1);
       const inH = (targetH / 300).toFixed(1);
       const cmW = ((targetW / 300) * 2.54).toFixed(1);
       const cmH = ((targetH / 300) * 2.54).toFixed(1);
 
+      const activeProfile = p.upscaleProfile || 'auto';
+
       content = `
         <div class="panel-header">
-          <span class="panel-title">AI Image Upscaler</span>
+          <span class="panel-title">${tool === 'tool_low_to_high' ? '✨ Low → High Quality AI' : '⚡ AI Super-Resolution'}</span>
           <span class="badge badge-cyan">3 Credits</span>
         </div>
         <div class="panel-content">
-          <div style="background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); border-radius:8px; padding:12px; margin-bottom:16px; font-size:0.75rem;">
+          <div style="background:linear-gradient(135deg, rgba(6,182,212,0.12), rgba(99,102,241,0.1)); border:1px solid rgba(6,182,212,0.3); border-radius:8px; padding:12px; margin-bottom:14px; font-size:0.75rem;">
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
               <span>Source: <strong>${curW} × ${curH} px</strong></span>
-              <span class="badge badge-indigo">72 PPI Standard</span>
+              <span class="badge badge-indigo">Low / Standard Res</span>
             </div>
             <div style="display:flex; justify-content:space-between; color:var(--accent-secondary); font-weight:700;">
               <span>Target: <strong>${targetW} × ${targetH} px</strong></span>
-              <span class="badge badge-cyan">300 PPI Print Ready</span>
+              <span class="badge badge-cyan">300 PPI Master</span>
             </div>
             <div style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted); margin-top:6px;">
               Print Dimension: ${inW}" × ${inH}" (${cmW} × ${cmH} cm)
             </div>
           </div>
 
-          <div class="control-group">
-            <div class="control-label"><span>Resolution Mode & Print Density</span></div>
-            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-bottom:6px;">
-              ${['2K', '4K', '6K'].map(res => `
-                <button class="btn btn-sm ${p.upscaleResolution === res ? 'btn-primary' : 'btn-secondary'}" data-res="${res}">${res}</button>
-              `).join('')}
+          <!-- 1-Click AI Presets -->
+          <div class="control-group" style="margin-bottom:12px;">
+            <div class="control-label"><span style="font-weight:700; color:var(--text-primary);">1-Click AI Quality Preset</span></div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; margin-bottom:5px;">
+              <button class="btn btn-sm ${activeProfile === 'auto' ? 'btn-primary' : 'btn-secondary'}" data-upscale-profile="auto" style="font-size:0.7rem; padding:6px 2px;">
+                🌟 Auto
+              </button>
+              <button class="btn btn-sm ${activeProfile === 'face_portrait' ? 'btn-primary' : 'btn-secondary'}" data-upscale-profile="face_portrait" style="font-size:0.7rem; padding:6px 2px;">
+                👤 Portrait
+              </button>
+              <button class="btn btn-sm ${activeProfile === 'photo_restore' ? 'btn-primary' : 'btn-secondary'}" data-upscale-profile="photo_restore" style="font-size:0.7rem; padding:6px 2px;">
+                📷 Blurry Fix
+              </button>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1.3fr; gap:6px;">
-              <button class="btn btn-sm ${p.upscaleResolution === '8K' ? 'btn-primary' : 'btn-secondary'}" data-res="8K">8K Cinema</button>
-              <button class="btn btn-sm ${p.upscaleResolution === '300PPI' ? 'btn-primary' : 'btn-secondary'}" data-res="300PPI" style="border-color:var(--accent-primary);">
-                ✦ 300 PPI Master
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:5px;">
+              <button class="btn btn-sm ${activeProfile === 'product_ecommerce' ? 'btn-primary' : 'btn-secondary'}" data-upscale-profile="product_ecommerce" style="font-size:0.7rem; padding:6px 2px;">
+                🛍️ Product
+              </button>
+              <button class="btn btn-sm ${activeProfile === 'landscape_nature' ? 'btn-primary' : 'btn-secondary'}" data-upscale-profile="landscape_nature" style="font-size:0.7rem; padding:6px 2px;">
+                🏞️ Nature
+              </button>
+              <button class="btn btn-sm ${activeProfile === 'art_illustration' ? 'btn-primary' : 'btn-secondary'}" data-upscale-profile="art_illustration" style="font-size:0.7rem; padding:6px 2px;">
+                🎨 Art/Anime
               </button>
             </div>
           </div>
 
+          <!-- Target Resolution -->
+          <div class="control-group">
+            <div class="control-label"><span>Resolution Mode & Print Density</span></div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; margin-bottom:5px;">
+              ${['2x', '4x', '8x', 'HD'].map(res => `
+                <button class="btn btn-sm ${p.upscaleResolution === res ? 'btn-primary' : 'btn-secondary'}" data-res="${res}" style="font-size:0.7rem; padding:5px 2px;">${res}</button>
+              `).join('')}
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px;">
+              ${['2K', '4K', '8K', '300PPI'].map(res => `
+                <button class="btn btn-sm ${p.upscaleResolution === res ? 'btn-primary' : 'btn-secondary'}" data-res="${res}" style="font-size:0.7rem; padding:5px 2px; ${res === '300PPI' ? 'border-color:var(--accent-primary);' : ''}">${res === '300PPI' ? '✦ 300' : res}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Quality Sliders -->
           <div class="control-group">
             <div class="control-label"><span>Sharpness & Edge Clarity</span><span class="control-value">${p.upscaleSharpness}%</span></div>
             <input type="range" class="range-slider" id="param-sharpness" min="0" max="100" value="${p.upscaleSharpness}" />
           </div>
 
           <div class="control-group">
-            <div class="control-label"><span>Detail Enhancement</span><span class="control-value">${p.upscaleDetail}%</span></div>
+            <div class="control-label"><span>Detail & Micro-Texture</span><span class="control-value">${p.upscaleDetail}%</span></div>
             <input type="range" class="range-slider" id="param-detail" min="0" max="100" value="${p.upscaleDetail}" />
           </div>
 
           <div class="control-group">
-            <div class="control-label"><span>Noise & Grain Reduction</span><span class="control-value">${p.upscaleNoiseReduction}%</span></div>
+            <div class="control-label"><span>Denoise & JPEG Block Removal</span><span class="control-value">${p.upscaleNoiseReduction}%</span></div>
             <input type="range" class="range-slider" id="param-noise-red" min="0" max="100" value="${p.upscaleNoiseReduction}" />
           </div>
 
+          <div class="control-group">
+            <div class="control-label"><span>Dynamic Range & Contrast</span><span class="control-value">${p.upscaleContrast || 35}%</span></div>
+            <input type="range" class="range-slider" id="param-contrast" min="0" max="100" value="${p.upscaleContrast || 35}" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-label"><span>Color Vibrancy & Tone</span><span class="control-value">${p.upscaleVibrance || 30}%</span></div>
+            <input type="range" class="range-slider" id="param-vibrance" min="0" max="100" value="${p.upscaleVibrance || 30}" />
+          </div>
+
+          <div class="control-group">
+            <div class="control-label"><span>De-blurring Strength</span><span class="control-value">${p.upscaleDeblur || 45}%</span></div>
+            <input type="range" class="range-slider" id="param-deblur" min="0" max="100" value="${p.upscaleDeblur || 45}" />
+          </div>
+
           <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:8px; margin-top:16px;">
-            <button class="btn btn-primary" id="btn-process-tool">
-              Process 300 PPI Upscale
+            <button class="btn btn-primary" id="btn-process-tool" style="font-weight:700;">
+              ✨ Enhance & Upscale
             </button>
             <button class="btn btn-secondary" id="btn-quick-export-300" title="Instant 300 PPI High-Resolution Download">
               300 PPI ↓
@@ -1626,6 +1716,10 @@ export class StudioView {
         else if (id === 'param-sharpness') store.state.params.upscaleSharpness = val;
         else if (id === 'param-detail') store.state.params.upscaleDetail = val;
         else if (id === 'param-noise-red') store.state.params.upscaleNoiseReduction = val;
+        else if (id === 'param-contrast') store.state.params.upscaleContrast = val;
+        else if (id === 'param-vibrance') store.state.params.upscaleVibrance = val;
+        else if (id === 'param-edge-clarity') store.state.params.upscaleEdgeClarity = val;
+        else if (id === 'param-deblur') store.state.params.upscaleDeblur = val;
         else if (id === 'param-grain-amount') store.state.params.grainAmount = val;
         else if (id === 'param-grain-size') store.state.params.grainSize = val;
         else if (id === 'param-grain-contrast') store.state.params.grainContrast = val;
@@ -1761,6 +1855,48 @@ export class StudioView {
         this.updateProcessing(true);
       };
     });
+
+    panel.querySelectorAll('[data-upscale-profile]').forEach(btn => {
+      btn.onclick = () => {
+        const k = btn.getAttribute('data-upscale-profile');
+        const preset = ImageUpscalerEngine.presets[k];
+        store.setParam('upscaleProfile', k);
+        if (preset) {
+          store.setParam('upscaleSharpness', preset.sharpness);
+          store.setParam('upscaleDetail', preset.detail);
+          store.setParam('upscaleNoiseReduction', preset.noiseReduction);
+          store.setParam('upscaleContrast', preset.contrast);
+          store.setParam('upscaleVibrance', preset.vibrance);
+          store.setParam('upscaleEdgeClarity', preset.edgeClarity);
+          store.setParam('upscaleDeblur', preset.deblur);
+          toast.success(`AI Preset Applied: ${preset.name}`);
+        }
+        this.renderInspector();
+        this.updateProcessing(true);
+      };
+    });
+
+    const processToolBtn = panel.querySelector('#btn-process-tool');
+    if (processToolBtn) {
+      processToolBtn.onclick = () => {
+        this.executeCurrentTool();
+      };
+    }
+
+    const quickExport300Btn = panel.querySelector('#btn-quick-export-300');
+    if (quickExport300Btn) {
+      quickExport300Btn.onclick = () => {
+        if (this.processedCanvas) {
+          ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
+        } else {
+          this.executeCurrentTool().then(() => {
+            if (this.processedCanvas) {
+              ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
+            }
+          });
+        }
+      };
+    }
 
     panel.querySelectorAll('[data-grain-preset]').forEach(btn => {
       btn.onclick = () => {
@@ -1961,7 +2097,7 @@ export class StudioView {
     const p = state.params;
 
     // Cache key for instant tool switching
-    const cacheKey = `${tool}_${p.grainPreset || ''}_${p.upscaleResolution || ''}_${p.packStyle || ''}_${p.sheetLayout || ''}_${p.bgMode || ''}_${p.bgSensitivity || ''}_${p.bgTolerance || ''}_${p.bgFeather || ''}_${p.bgDefringe || ''}_${p.bgContiguous || ''}_${p.bgShadowPreserve || ''}_${p.bgCustomColor || ''}`;
+    const cacheKey = `${tool}_${p.grainPreset || ''}_${p.upscaleResolution || ''}_${p.upscaleProfile || ''}_${p.upscaleSharpness || ''}_${p.upscaleDetail || ''}_${p.upscaleNoiseReduction || ''}_${p.upscaleContrast || ''}_${p.upscaleVibrance || ''}_${p.upscaleDeblur || ''}_${p.packStyle || ''}_${p.sheetLayout || ''}_${p.bgMode || ''}_${p.bgSensitivity || ''}_${p.bgTolerance || ''}_${p.bgFeather || ''}_${p.bgDefringe || ''}_${p.bgContiguous || ''}_${p.bgShadowPreserve || ''}_${p.bgCustomColor || ''}`;
 
     if (!forceFresh && this.toolCache.has(cacheKey)) {
       const cached = this.toolCache.get(cacheKey);
@@ -1983,11 +2119,16 @@ export class StudioView {
         width: state.originalWidth,
         height: state.originalHeight
       });
-    } else if (tool === 'tool_upscaler') {
-      outCanvas = ImageUpscalerEngine.process(img, p.upscaleResolution, {
+    } else if (tool === 'tool_upscaler' || tool === 'tool_low_to_high') {
+      outCanvas = ImageUpscalerEngine.process(img, p.upscaleResolution || '4K', {
+        profile: p.upscaleProfile || 'auto',
         sharpness: p.upscaleSharpness,
         detailEnhancement: p.upscaleDetail,
-        noiseReduction: p.upscaleNoiseReduction
+        noiseReduction: p.upscaleNoiseReduction,
+        edgeEnhancement: p.upscaleEdgeClarity,
+        contrast: p.upscaleContrast,
+        vibrance: p.upscaleVibrance,
+        deblur: p.upscaleDeblur
       });
     } else if (tool === 'tool_film_grain') {
       outCanvas = FilmGrainEngine.render(img, p.grainPreset, {

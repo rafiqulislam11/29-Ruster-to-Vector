@@ -71,12 +71,17 @@ export class BatchProcessorEngine {
       ctx.drawImage(vImg, 0, 0);
       URL.revokeObjectURL(svgUrl);
 
-    } else if (tool === 'tool_upscaler') {
+    } else if (tool === 'tool_upscaler' || tool === 'tool_low_to_high') {
       outCanvas = ImageUpscalerEngine.process(img, params.upscaleResolution || '300PPI', {
-        sharpness: params.upscaleSharpness || 75,
-        detailEnhancement: params.upscaleDetail || 60,
-        noiseReduction: params.upscaleNoiseReduction || 30,
-        edgeEnhancement: params.upscaleEdgeEnhancement || 50
+        sharpness: params.upscaleSharpness !== undefined ? params.upscaleSharpness : 75,
+        detailEnhancement: params.upscaleDetail !== undefined ? params.upscaleDetail : 60,
+        noiseReduction: params.upscaleNoiseReduction !== undefined ? params.upscaleNoiseReduction : 30,
+        edgeEnhancement: params.upscaleEdgeEnhancement !== undefined ? params.upscaleEdgeEnhancement : 50,
+        profile: params.upscaleProfile || (tool === 'tool_low_to_high' ? 'photo_restore' : 'auto'),
+        contrast: params.upscaleContrast !== undefined ? params.upscaleContrast : 15,
+        vibrance: params.upscaleVibrance !== undefined ? params.upscaleVibrance : 15,
+        edgeClarity: params.upscaleEdgeClarity !== undefined ? params.upscaleEdgeClarity : 35,
+        deblur: params.upscaleDeblur !== undefined ? params.upscaleDeblur : 30
       });
 
     } else if (tool.includes('remove') || tool.includes('transparent') || tool.startsWith('tool_bg_')) {

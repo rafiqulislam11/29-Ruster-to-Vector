@@ -123,16 +123,21 @@ class StateStore {
         bgPreview: 'checkerboard', // 'checkerboard' | 'dark' | 'white' | 'neon' | 'contrast'
         bgPreviewColor: '#181b22',
 
-        // Upscale Studio
-        upscaleResolution: '4K', // '2K' | '4K' | '6K' | '8K' | '300PPI' | 'custom'
+        // Upscale Studio & Low-to-High Quality Converter
+        upscaleResolution: '4K', // 'HD' | '2K' | '4K' | '6K' | '8K' | '300PPI' | 'custom'
         upscaleMultiplier: '4x', // '2x' | '4x' | '6x' | '8x' | 'custom'
+        upscaleProfile: 'auto', // 'auto' | 'face_portrait' | 'photo_restore' | 'product_ecommerce' | 'landscape_nature' | 'art_illustration'
         upscaleCustomW: 3840,
         upscaleCustomH: 2160,
-        upscaleSharpness: 75,
-        upscaleDetail: 65,
-        upscaleNoiseReduction: 30,
+        upscaleSharpness: 80,
+        upscaleDetail: 70,
+        upscaleNoiseReduction: 35,
         upscaleTexturePreservation: 80,
         upscaleArtifactReduction: 40,
+        upscaleContrast: 35,
+        upscaleVibrance: 30,
+        upscaleEdgeClarity: 65,
+        upscaleDeblur: 45,
 
         // Gradient Studio
         gradientColors: ['#6366f1', '#06b6d4', '#ec4899', '#8b5cf6'],

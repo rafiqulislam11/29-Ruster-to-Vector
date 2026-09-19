@@ -131,6 +131,10 @@ export class DashboardView {
                 <span style="font-size:1.2rem;">⚙️</span>
                 <span style="font-size:0.75rem; font-weight:600;">Settings</span>
               </button>
+              <button class="btn btn-glass btn-sm" id="btn-quick-photo-enhance" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px; border-color:rgba(99,102,241,0.5); color:var(--accent-primary); background:rgba(99,102,241,0.1);">
+                <span style="font-size:1.2rem;">✨</span>
+                <span style="font-size:0.75rem; font-weight:600;">Photo AI</span>
+              </button>
               <button class="btn btn-glass btn-sm" id="btn-quick-batch-bg" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px; border-color:rgba(6,182,212,0.4); color:var(--accent-secondary);">
                 <span style="font-size:1.2rem;">✂</span>
                 <span style="font-size:0.75rem; font-weight:600;">Batch BG</span>
@@ -301,6 +305,12 @@ export class DashboardView {
         store.setState({ currentView: view });
       };
     });
+
+    // Photo Enhancer Quick-Launch
+    const photoEnhanceBtn = this.container.querySelector('#btn-quick-photo-enhance');
+    if (photoEnhanceBtn) {
+      photoEnhanceBtn.onclick = () => ModalManager.openPhotoEnhancerModal();
+    }
 
     // Batch BG Remover Quick-Launch
     const batchBgBtn = this.container.querySelector('#btn-quick-batch-bg');
