@@ -8,6 +8,7 @@ import { PpiWriter } from '../utils/ppi-writer.js';
 import { PrintExporter } from '../utils/print-exporter.js';
 import { BatchProcessorEngine } from '../engines/batch-processor.js';
 import { BackgroundRemovalEngine } from '../engines/bg-removal.js';
+import { ImageUpscalerEngine } from '../engines/upscaler.js';
 
 export class ModalManager {
   /**
@@ -380,6 +381,57 @@ export class ModalManager {
                 <span>Aggressive (removes more)</span>
               </div>
             </div>
+
+            <!-- Quality Enhancement Panel -->
+            <div style="background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(6,182,212,0.08)); border:1px solid rgba(99,102,241,0.25); padding:14px; border-radius:10px; margin-bottom:4px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:1rem;">✨</span>
+                  <label style="font-size:0.83rem; font-weight:700; color:var(--text-primary);">Output Quality Enhancement</label>
+                </div>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                  <div style="position:relative; width:36px; height:20px;">
+                    <input type="checkbox" id="bbg-enhance-toggle" checked style="opacity:0; position:absolute; width:0; height:0;" />
+                    <div id="bbg-toggle-track" style="position:absolute; inset:0; background:var(--accent-primary); border-radius:10px; transition:background 0.2s;"></div>
+                    <div id="bbg-toggle-knob" style="position:absolute; top:2px; left:18px; width:16px; height:16px; background:#fff; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+                  </div>
+                  <span style="font-size:0.75rem; color:var(--accent-secondary); font-weight:700;">ON</span>
+                </label>
+              </div>
+              <div id="bbg-enhance-opts">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                      <label style="font-size:0.75rem; color:var(--text-muted);">🔍 Sharpness</label>
+                      <span id="bbg-sharp-val" style="font-size:0.75rem; font-weight:700; color:var(--accent-secondary);">70</span>
+                    </div>
+                    <input type="range" id="bbg-sharpness" min="0" max="100" value="70" style="width:100%;" />
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                      <label style="font-size:0.75rem; color:var(--text-muted);">🎨 Contrast Boost</label>
+                      <span id="bbg-contrast-val" style="font-size:0.75rem; font-weight:700; color:var(--accent-secondary);">40</span>
+                    </div>
+                    <input type="range" id="bbg-contrast" min="0" max="100" value="40" style="width:100%;" />
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                      <label style="font-size:0.75rem; color:var(--text-muted);">🌿 Noise Reduction</label>
+                      <span id="bbg-denoise-val" style="font-size:0.75rem; font-weight:700; color:var(--accent-secondary);">30</span>
+                    </div>
+                    <input type="range" id="bbg-denoise" min="0" max="100" value="30" style="width:100%;" />
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                      <label style="font-size:0.75rem; color:var(--text-muted);">✨ Edge Clarity</label>
+                      <span id="bbg-edge-val" style="font-size:0.75rem; font-weight:700; color:var(--accent-secondary);">60</span>
+                    </div>
+                    <input type="range" id="bbg-edge" min="0" max="100" value="60" style="width:100%;" />
+                  </div>
+                </div>
+                <div style="margin-top:8px; font-size:0.7rem; color:var(--text-muted);">✅ Lossless PNG export • High-quality bicubic rendering • Edge-aware enhancement</div>
+              </div>
+            </div>
           </div>
 
           <div style="height:1px; background:var(--border-subtle); margin:16px 0;"></div>
@@ -485,6 +537,21 @@ export class ModalManager {
     const bgImgPreview  = modalEl.querySelector('#bbg-bg-img-preview');
     const bgImgThumb    = modalEl.querySelector('#bbg-bg-img-thumb');
 
+    // ── Enhancement refs ──
+    const enhanceToggle = modalEl.querySelector('#bbg-enhance-toggle');
+    const toggleTrack   = modalEl.querySelector('#bbg-toggle-track');
+    const toggleKnob    = modalEl.querySelector('#bbg-toggle-knob');
+    const toggleLabel   = enhanceToggle?.closest('label')?.querySelector('span');
+    const enhanceOpts   = modalEl.querySelector('#bbg-enhance-opts');
+    const sharpSlider   = modalEl.querySelector('#bbg-sharpness');
+    const sharpValEl    = modalEl.querySelector('#bbg-sharp-val');
+    const contrastSlider= modalEl.querySelector('#bbg-contrast');
+    const contrastValEl = modalEl.querySelector('#bbg-contrast-val');
+    const denoiseSlider = modalEl.querySelector('#bbg-denoise');
+    const denoiseValEl  = modalEl.querySelector('#bbg-denoise-val');
+    const edgeSlider    = modalEl.querySelector('#bbg-edge');
+    const edgeValEl     = modalEl.querySelector('#bbg-edge-val');
+
     let selectedFiles = files ? [...files] : [];
     let selectedMode = 'remove';
     let bgImageEl = null;
@@ -493,6 +560,24 @@ export class ModalManager {
 
     // ── Sensitivity slider ──
     sensSlider.oninput = () => { sensVal.textContent = sensSlider.value; };
+
+    // ── Enhancement toggle ──
+    const updateToggleUI = () => {
+      const on = enhanceToggle.checked;
+      toggleTrack.style.background = on ? 'var(--accent-primary)' : 'var(--border-subtle)';
+      toggleKnob.style.left = on ? '18px' : '2px';
+      if (toggleLabel) toggleLabel.textContent = on ? 'ON' : 'OFF';
+      if (enhanceOpts) enhanceOpts.style.opacity = on ? '1' : '0.4';
+    };
+    enhanceToggle.onchange = updateToggleUI;
+    updateToggleUI();
+
+    // ── Enhancement sliders live display ──
+    sharpSlider.oninput   = () => { sharpValEl.textContent   = sharpSlider.value; };
+    contrastSlider.oninput= () => { contrastValEl.textContent= contrastSlider.value; };
+    denoiseSlider.oninput = () => { denoiseValEl.textContent = denoiseSlider.value; };
+    edgeSlider.oninput    = () => { edgeValEl.textContent    = edgeSlider.value; };
+
 
     // ── Mode pill selection ──
     const modeBtns = modalEl.querySelectorAll('.bbg-mode-btn');
@@ -661,9 +746,14 @@ export class ModalManager {
       progressSec.style.display = 'block';
       progressSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-      logEl.innerHTML = `<div style="color:var(--accent-secondary);">[Pipeline] Initializing ${selectedFiles.length}-image batch background processor...</div>`;
+      logEl.innerHTML = `<div style="color:var(--accent-secondary);">[Pipeline] Initializing ${selectedFiles.length}-image batch ✨ Enhanced Quality processor...</div>`;
 
-      const sensitivity = parseInt(sensSlider.value, 10);
+      const sensitivity  = parseInt(sensSlider.value, 10);
+      const doEnhance    = enhanceToggle.checked;
+      const sharpness    = parseInt(sharpSlider.value, 10);
+      const contrastAmt  = parseInt(contrastSlider.value, 10);
+      const denoiseAmt   = parseInt(denoiseSlider.value, 10);
+      const edgeAmt      = parseInt(edgeSlider.value, 10);
       const total = selectedFiles.length;
       let processed = 0;
       let failed = 0;
@@ -678,63 +768,111 @@ export class ModalManager {
       let cursor = 0;
 
       /**
-       * Apply background action to a loaded <img> and return canvas
+       * Apply background removal + new background compositing + quality enhancement.
+       * Returns a canvas with lossless-quality output.
        */
       const applyBgAction = (img) => {
-        const bgMode = 'ai_photo';
+        const W = img.naturalWidth  || img.width  || 800;
+        const H = img.naturalHeight || img.height || 600;
 
-        // Step 1: remove background using the imported BackgroundRemovalEngine
-        let resultCanvas;
+        // ── Step 1: High-quality source draw ──
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = W;
+        srcCanvas.height = H;
+        const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+        srcCtx.imageSmoothingEnabled = true;
+        srcCtx.imageSmoothingQuality = 'high';
+        srcCtx.drawImage(img, 0, 0, W, H);
+
+        // ── Step 2: AI background removal ──
+        let cutoutCanvas;
         try {
-          resultCanvas = BackgroundRemovalEngine.process(img, {
-            mode: bgMode,
+          cutoutCanvas = BackgroundRemovalEngine.process(srcCanvas, {
+            mode: 'ai_photo',
             sensitivity,
-            feather: 3,
-            defringe: 40,
+            feather: 4,
+            defringe: 45,
             contiguous: true,
             shadowPreservation: true
           });
         } catch (e) {
-          resultCanvas = document.createElement('canvas');
-          resultCanvas.width = img.naturalWidth || 800;
-          resultCanvas.height = img.naturalHeight || 600;
-          resultCanvas.getContext('2d').drawImage(img, 0, 0);
+          cutoutCanvas = srcCanvas;
         }
+
+        // ── Step 3: Composite onto new background ──
+        const out = document.createElement('canvas');
+        out.width  = W;
+        out.height = H;
+        const ctx2 = out.getContext('2d', { willReadFrequently: doEnhance });
+        ctx2.imageSmoothingEnabled = true;
+        ctx2.imageSmoothingQuality = 'high';
 
         if (selectedMode === 'remove') {
-          // Transparent — just return as-is
-          return resultCanvas;
-        }
-
-        // Step 2: composite onto new background
-        const out = document.createElement('canvas');
-        out.width = resultCanvas.width;
-        out.height = resultCanvas.height;
-        const ctx2 = out.getContext('2d');
-
-        if (selectedMode === 'color') {
+          // Transparent output — composite cutout directly on blank canvas
+          ctx2.drawImage(cutoutCanvas, 0, 0);
+        } else if (selectedMode === 'color') {
           ctx2.fillStyle = colorPick.value;
-          ctx2.fillRect(0, 0, out.width, out.height);
+          ctx2.fillRect(0, 0, W, H);
+          ctx2.drawImage(cutoutCanvas, 0, 0);
         } else if (selectedMode === 'gradient') {
-          const gr = ctx2.createLinearGradient(
-            gradDir.value === 'to right' || gradDir.value === '135deg' || gradDir.value === 'to bottom right' ? 0 : 0,
-            gradDir.value === 'to bottom' || gradDir.value === 'to bottom right' ? 0 : 0,
-            gradDir.value === 'to right' ? out.width : (gradDir.value === '135deg' || gradDir.value === 'to bottom right' ? out.width : 0),
-            gradDir.value === 'to bottom' || gradDir.value === '135deg' || gradDir.value === 'to bottom right' ? out.height : 0
-          );
+          // Fixed gradient direction calculation
+          let x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+          const dir = gradDir.value;
+          if      (dir === 'to right')        { x1 = W;              }
+          else if (dir === 'to bottom')       { y1 = H;              }
+          else if (dir === '135deg')          { x1 = W; y1 = H;     }
+          else if (dir === 'to bottom right') { x1 = W; y1 = H;     }
+          else                                { x1 = W; y1 = H;     }
+          const gr = ctx2.createLinearGradient(x0, y0, x1, y1);
           gr.addColorStop(0, gradA.value);
           gr.addColorStop(1, gradB.value);
           ctx2.fillStyle = gr;
-          ctx2.fillRect(0, 0, out.width, out.height);
+          ctx2.fillRect(0, 0, W, H);
+          ctx2.drawImage(cutoutCanvas, 0, 0);
         } else if (selectedMode === 'image' && bgImageEl) {
-          ctx2.drawImage(bgImageEl, 0, 0, out.width, out.height);
+          // Draw bg image with cover-fit
+          const bw = bgImageEl.naturalWidth  || bgImageEl.width  || W;
+          const bh = bgImageEl.naturalHeight || bgImageEl.height || H;
+          const scale = Math.max(W / bw, H / bh);
+          const drawW = bw * scale;
+          const drawH = bh * scale;
+          const dx = (W - drawW) / 2;
+          const dy = (H - drawH) / 2;
+          ctx2.drawImage(bgImageEl, dx, dy, drawW, drawH);
+          ctx2.drawImage(cutoutCanvas, 0, 0);
         } else {
           ctx2.fillStyle = '#ffffff';
-          ctx2.fillRect(0, 0, out.width, out.height);
+          ctx2.fillRect(0, 0, W, H);
+          ctx2.drawImage(cutoutCanvas, 0, 0);
         }
 
-        // Composite cutout over background
-        ctx2.drawImage(resultCanvas, 0, 0);
+        // ── Step 4: Quality Enhancement (Sharpness + Contrast + Denoise + Edge) ──
+        if (doEnhance && (sharpness > 0 || contrastAmt > 0 || denoiseAmt > 0 || edgeAmt > 0)) {
+          // 4a. Unsharp Mask / Sharpness + Edge Clarity via ImageUpscalerEngine
+          if (sharpness > 0 || edgeAmt > 0) {
+            ImageUpscalerEngine.applyUnsharpMask(ctx2, W, H, sharpness, edgeAmt, edgeAmt);
+          }
+
+          // 4b. Noise / artifact reduction
+          if (denoiseAmt > 20) {
+            ImageUpscalerEngine.applyNoiseArtifactSuppression(ctx2, W, H, denoiseAmt, 30);
+          }
+
+          // 4c. Contrast boost via pixel-level S-curve
+          if (contrastAmt > 0) {
+            const imgData = ctx2.getImageData(0, 0, W, H);
+            const d = imgData.data;
+            const factor = (259 * (contrastAmt + 255)) / (255 * (259 - contrastAmt));
+            for (let i = 0; i < d.length; i += 4) {
+              if (d[i + 3] < 10) continue; // skip fully transparent
+              d[i]     = Math.min(255, Math.max(0, factor * (d[i]     - 128) + 128));
+              d[i + 1] = Math.min(255, Math.max(0, factor * (d[i + 1] - 128) + 128));
+              d[i + 2] = Math.min(255, Math.max(0, factor * (d[i + 2] - 128) + 128));
+            }
+            ctx2.putImageData(imgData, 0, 0);
+          }
+        }
+
         return out;
       };
 
@@ -752,17 +890,18 @@ export class ModalManager {
           const fileName = file.name || `image_${String(idx+1).padStart(3,'0')}.png`;
 
           try {
-            // Load image
+            // Load image at full quality
             const url = URL.createObjectURL(file);
             const img = new Image();
+            img.crossOrigin = 'anonymous';
             img.src = url;
             await img.decode();
             URL.revokeObjectURL(url);
 
-            // Process
+            // Process with enhancement
             const canvas = applyBgAction(img);
 
-            // Export PNG blob
+            // Export as lossless PNG (no quality loss)
             const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
             const buf = await blob.arrayBuffer();
 
