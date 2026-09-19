@@ -40,30 +40,32 @@ class App {
   }
 
   async init() {
+    this.appRoot = this.appRoot || document.getElementById('app') || document.querySelector('#app') || document.body;
+
     // 0. Initialize Localization (EN/BN/AR)
-    i18n.init();
-
-    // 1. Initialize Default Sample Artwork so the studio is immediately alive and functional
-    const { canvas, img } = createSampleArtwork();
-    store.setState({
-      originalImage: img,
-      originalImageUrl: img.src,
-      originalFileName: 'cyber-prism-artwork.png',
-      originalWidth: 1200,
-      originalHeight: 800
-    });
-
-    // 2. Fetch User Profile & Session from API
     try {
-      const meRes = await api.getMe();
-      if (meRes.user) {
-        store.setState({ user: meRes.user });
+      if (i18n && typeof i18n.init === 'function') {
+        i18n.init();
       }
-    } catch (e) {
-      console.log('[Offline/Demo User Active]');
+    } catch (err) {
+      console.warn('Localization init fallback:', err);
     }
 
-    // 3. Initialize Views
+    // 1. Initialize Default Sample Artwork so the studio is immediately alive and functional
+    try {
+      const { canvas, img } = createSampleArtwork();
+      store.setState({
+        originalImage: img,
+        originalImageUrl: img.src,
+        originalFileName: 'cyber-prism-artwork.png',
+        originalWidth: 1200,
+        originalHeight: 800
+      });
+    } catch (e) {
+      console.warn('Sample artwork creation fallback:', e);
+    }
+
+    // 2. Initialize Views
     const returnToStudio = () => store.setState({ currentView: 'studio' });
 
     this.studioView = new StudioView(this.appRoot);
@@ -72,7 +74,6 @@ class App {
     this.adminView = new AdminView(this.appRoot, returnToStudio);
     this.settingsView = new SettingsView(this.appRoot);
     this.presetManagerView = new PresetManagerView(this.appRoot, () => {
-      // Applied preset callback
       returnToStudio();
     });
     this.projectManagerView = new ProjectManagerView(this.appRoot, () => {
@@ -81,26 +82,63 @@ class App {
     this.metadataStudioView = new MetadataStudioView(this.appRoot);
     this.exportCenterView = new ExportCenterView(this.appRoot);
 
-    // 4. Listen to State View Changes
+    // 3. Listen to State View Changes
     store.subscribe((state) => {
       if (state.currentView !== this.lastRenderedView) {
         this.renderCurrentView(state.currentView);
       }
     });
 
-    // Handle initial route check (e.g. if URL contains a tool slug)
-    const path = window.location.pathname.replace(/^\//, '');
-    if (['image-upscaler', 'image-to-vector', 'background-remover', 'gradient-maker', 'icon-pack-maker', 'fractal-glass'].includes(path)) {
-      store.setState({ currentView: 'landing', activeSeoTool: path });
-    } else if (['dashboard', 'admin', 'settings', 'preset-manager', 'project-manager', 'metadata-studio', 'export-center'].includes(path)) {
-      store.setState({ currentView: path });
-    } else {
-      // Default to Studio so user immediately lands on the creative workspace
-      store.setState({ currentView: 'studio' });
-    }
+    // 4. Handle initial route check (supports hash and GitHub Pages subpath)
+    const initialRoute = this.resolveRoute();
+    this.handleNavigation(initialRoute);
 
+    // Render current view immediately so user sees UI instantly
     this.renderCurrentView(store.getState().currentView);
     this.bindGlobalShortcuts();
+
+    // Listen to hash changes for single-page routing on static hosts
+    window.addEventListener('hashchange', () => {
+      const route = this.resolveRoute();
+      this.handleNavigation(route);
+    });
+
+    // 5. Fetch User Profile & Session from API asynchronously in background (won't block UI render)
+    api.getMe().then((meRes) => {
+      if (meRes && meRes.user) {
+        store.setState({ user: meRes.user });
+      }
+    }).catch(() => {
+      console.log('[Offline/Demo User Active]');
+    });
+  }
+
+  resolveRoute() {
+    // 1. Hash take priority (e.g. #/dashboard or #admin)
+    const hash = window.location.hash.replace(/^#\/?/, '').trim();
+    if (hash) {
+      const [hashRoute] = hash.split('?');
+      return hashRoute;
+    }
+
+    // 2. Pathname route: strip leading/trailing slashes and repo subpath
+    const cleanPath = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+    const segments = cleanPath.split('/').filter(Boolean);
+    let route = segments.length > 0 ? segments[segments.length - 1] : '';
+    if (route === '29-Ruster-to-Vector' || route === 'index.html') {
+      route = '';
+    }
+    return route;
+  }
+
+  handleNavigation(route) {
+    if (['image-upscaler', 'image-to-vector', 'background-remover', 'gradient-maker', 'icon-pack-maker', 'fractal-glass'].includes(route)) {
+      store.setState({ currentView: 'landing', activeSeoTool: route });
+    } else if (['landing', 'dashboard', 'admin', 'settings', 'preset-manager', 'project-manager', 'metadata-studio', 'export-center'].includes(route)) {
+      store.setState({ currentView: route });
+    } else {
+      store.setState({ currentView: 'studio' });
+    }
   }
 
   renderCurrentView(viewName) {
@@ -167,8 +205,13 @@ class App {
   }
 }
 
-// Bootstrap Application
+// Bootstrap Application reliably across all browsers & DOM ready states
 const app = new App();
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    app.init();
+  });
+} else {
+  // Document already ready (deferred module script)
   app.init();
-});
+}

@@ -801,6 +801,16 @@ class I18nService {
     this.applyDirection();
   }
 
+  init() {
+    this.applyDirection();
+    try {
+      store.setState({ language: this.currentLang });
+    } catch (e) {
+      // Safe fallback if called before store is fully wired
+    }
+    return this;
+  }
+
   getLanguage() {
     return this.currentLang;
   }
