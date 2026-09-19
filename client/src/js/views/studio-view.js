@@ -1885,15 +1885,10 @@ export class StudioView {
 
     const quickExport300Btn = panel.querySelector('#btn-quick-export-300');
     if (quickExport300Btn) {
-      quickExport300Btn.onclick = () => {
+      quickExport300Btn.onclick = async () => {
+        await this.executeCurrentTool();
         if (this.processedCanvas) {
           ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
-        } else {
-          this.executeCurrentTool().then(() => {
-            if (this.processedCanvas) {
-              ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
-            }
-          });
         }
       };
     }
@@ -2036,19 +2031,17 @@ export class StudioView {
   }
 
   /**
-   * Schedule processing via requestAnimationFrame for super fast 60fps response
+   * Schedule processing with 120ms debounce to ensure silky smooth 60fps slider and canvas response
    */
-  scheduleProcessing() {
-    if (this.rafPending) return;
-    this.rafPending = true;
-    requestAnimationFrame(() => {
-      this.rafPending = false;
-      this.updateProcessing(true);
-    });
+  scheduleProcessing(debounceMs = 120) {
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      this.updateProcessing(false, true);
+    }, debounceMs);
   }
 
   /**
-   * Execute current tool processing
+   * Execute current tool processing at full unconstrained master resolution
    */
   async executeCurrentTool() {
     const state = store.getState();
@@ -2060,7 +2053,7 @@ export class StudioView {
       return;
     }
 
-    toast.info(`Processing ${tool.replace('tool_', '')}...`);
+    toast.info(`Processing ${tool.replace('tool_', '')} at master resolution...`);
 
     if (tool === 'tool_icon_pack') {
       try {
@@ -2080,15 +2073,15 @@ export class StudioView {
         toast.error('Failed to generate ZIP: ' + err.message);
       }
     } else {
-      await this.updateProcessing(true);
-      toast.success('Asset processed and updated on canvas!');
+      await this.updateProcessing(true, false);
+      toast.success('Asset processed at master quality and updated on canvas!');
     }
   }
 
   /**
-   * Core processing dispatcher with memory caching for instant 0ms switching
+   * Core processing dispatcher with memory caching and fast preview scaling
    */
-  async updateProcessing(forceFresh = false) {
+  async updateProcessing(forceFresh = false, isPreview = true) {
     const state = store.getState();
     const img = state.originalImage;
     if (!img) return;
@@ -2097,7 +2090,7 @@ export class StudioView {
     const p = state.params;
 
     // Cache key for instant tool switching
-    const cacheKey = `${tool}_${p.grainPreset || ''}_${p.upscaleResolution || ''}_${p.upscaleProfile || ''}_${p.upscaleSharpness || ''}_${p.upscaleDetail || ''}_${p.upscaleNoiseReduction || ''}_${p.upscaleContrast || ''}_${p.upscaleVibrance || ''}_${p.upscaleDeblur || ''}_${p.packStyle || ''}_${p.sheetLayout || ''}_${p.bgMode || ''}_${p.bgSensitivity || ''}_${p.bgTolerance || ''}_${p.bgFeather || ''}_${p.bgDefringe || ''}_${p.bgContiguous || ''}_${p.bgShadowPreserve || ''}_${p.bgCustomColor || ''}`;
+    const cacheKey = `${tool}_${isPreview ? 'prev' : 'full'}_${p.grainPreset || ''}_${p.upscaleResolution || ''}_${p.upscaleProfile || ''}_${p.upscaleSharpness || ''}_${p.upscaleDetail || ''}_${p.upscaleNoiseReduction || ''}_${p.upscaleContrast || ''}_${p.upscaleVibrance || ''}_${p.upscaleDeblur || ''}_${p.packStyle || ''}_${p.sheetLayout || ''}_${p.bgMode || ''}_${p.bgSensitivity || ''}_${p.bgTolerance || ''}_${p.bgFeather || ''}_${p.bgDefringe || ''}_${p.bgContiguous || ''}_${p.bgShadowPreserve || ''}_${p.bgCustomColor || ''}`;
 
     if (!forceFresh && this.toolCache.has(cacheKey)) {
       const cached = this.toolCache.get(cacheKey);
@@ -2128,7 +2121,8 @@ export class StudioView {
         edgeEnhancement: p.upscaleEdgeClarity,
         contrast: p.upscaleContrast,
         vibrance: p.upscaleVibrance,
-        deblur: p.upscaleDeblur
+        deblur: p.upscaleDeblur,
+        isPreview: isPreview
       });
     } else if (tool === 'tool_film_grain') {
       outCanvas = FilmGrainEngine.render(img, p.grainPreset, {

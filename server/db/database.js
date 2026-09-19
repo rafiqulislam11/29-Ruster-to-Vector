@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const config = require('../config/env');
 
 const DB_FILE = path.isAbsolute(config.databasePath)
@@ -20,7 +21,8 @@ const initialSchema = {
       id: 'usr_admin',
       name: 'Admin CreativeForge',
       email: 'admin@creativeforge.ai',
-      password_hash: 'admin123',
+      password_hash: 'd32136961f5e4f02f99a65dbf37fc173e301268cbcc5831a0ff430ee3824c659b6b2bd5e1a2c77b5626484843ea514e20e8e90544a3efaf5daca50ae728d37a3',
+      salt: 'e8b15d6c8e3a2419f7a0b5c4d3e21098',
       plan_id: 'BUSINESS',
       role: 'admin',
       credits: 99999,
@@ -30,7 +32,8 @@ const initialSchema = {
       id: 'usr_pro',
       name: 'Elena Rostova',
       email: 'elena@designstudio.io',
-      password_hash: 'demo123',
+      password_hash: '3a9a9575efe30867bda0ba70526ac7b7eec34c00a853e2ae3521963d65519d23f7a348bf7795925963d714cf009aa0fb20d538d43a22496dd918c6192910b686',
+      salt: 'e8b15d6c8e3a2419f7a0b5c4d3e21098',
       plan_id: 'PROFESSIONAL',
       role: 'user',
       credits: 450,
@@ -40,7 +43,8 @@ const initialSchema = {
       id: 'usr_free',
       name: 'Alex Vance',
       email: 'alex@vancecraft.com',
-      password_hash: 'demo123',
+      password_hash: '3a9a9575efe30867bda0ba70526ac7b7eec34c00a853e2ae3521963d65519d23f7a348bf7795925963d714cf009aa0fb20d538d43a22496dd918c6192910b686',
+      salt: 'e8b15d6c8e3a2419f7a0b5c4d3e21098',
       plan_id: 'FREE',
       role: 'user',
       credits: 10,
@@ -232,6 +236,9 @@ const initialSchema = {
       features: ['Unlimited Projects', 'Team Collaboration', 'Dedicated AI Compute', 'Automated Daily Backups']
     }
   ],
+  sessions: [],
+  credit_transactions: [],
+  audit_logs: [],
   backups: []
 };
 
@@ -327,6 +334,157 @@ class Database {
     const deleted = this.data[collection].length < initialLen;
     if (deleted) this.save();
     return deleted;
+  }
+
+  // Password Hashing (PBKDF2 with SHA-512)
+  hashPassword(password, salt = null) {
+    const s = salt || crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, s, 10000, 64, 'sha512').toString('hex');
+    return { salt: s, hash };
+  }
+
+  verifyPassword(password, storedHash, salt = null) {
+    if (!storedHash) return false;
+    if (salt) {
+      const calculated = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+      return crypto.timingSafeEqual(Buffer.from(calculated), Buffer.from(storedHash));
+    }
+    // Fallback for demo seed accounts without salt
+    return password === storedHash;
+  }
+
+  // Session Token Management
+  createSession(userId) {
+    const token = `sess_${crypto.randomBytes(32).toString('hex')}`;
+    const expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
+    const session = {
+      id: token,
+      user_id: userId,
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt
+    };
+    if (!this.data.sessions) this.data.sessions = [];
+    this.data.sessions.push(session);
+    this.save();
+    return token;
+  }
+
+  validateSession(token) {
+    if (!token || !this.data.sessions) return null;
+    const session = this.data.sessions.find(s => s.id === token);
+    if (!session) return null;
+    if (new Date(session.expires_at) < new Date()) {
+      this.revokeSession(token);
+      return null;
+    }
+    return session;
+  }
+
+  revokeSession(token) {
+    if (!this.data.sessions) return false;
+    const initialLen = this.data.sessions.length;
+    this.data.sessions = this.data.sessions.filter(s => s.id !== token);
+    if (this.data.sessions.length < initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  // Transactional Credit Management
+  reserveCredits(userId, jobId, amount, reason = 'Processing Job Reservation') {
+    const user = this.findById('users', userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.credits < amount) {
+      return { success: false, error: `Insufficient credits. Required: ${amount}, Available: ${user.credits}` };
+    }
+
+    const balanceBefore = user.credits;
+    user.credits -= amount;
+    this.update('users', userId, { credits: user.credits });
+
+    const tx = this.insert('credit_transactions', {
+      user_id: userId,
+      job_id: jobId,
+      type: 'RESERVE',
+      amount,
+      balance_before: balanceBefore,
+      balance_after: user.credits,
+      status: 'reserved',
+      reason
+    });
+
+    this.insert('audit_logs', {
+      action: 'CREDIT_RESERVE',
+      user_id: userId,
+      job_id: jobId,
+      amount,
+      balance_after: user.credits,
+      timestamp: new Date().toISOString()
+    });
+
+    return { success: true, remaining: user.credits, transactionId: tx.id };
+  }
+
+  confirmCreditDeduction(jobId) {
+    if (!this.data.credit_transactions) return false;
+    const tx = this.data.credit_transactions.find(t => t.job_id === jobId && t.status === 'reserved');
+    if (!tx) return false;
+
+    tx.status = 'deducted';
+    tx.confirmed_at = new Date().toISOString();
+    this.save();
+
+    this.insert('audit_logs', {
+      action: 'CREDIT_CONFIRMED',
+      user_id: tx.user_id,
+      job_id: jobId,
+      amount: tx.amount,
+      timestamp: new Date().toISOString()
+    });
+
+    return true;
+  }
+
+  refundCredits(jobId, reason = 'Processing Failure Refund') {
+    if (!this.data.credit_transactions) return false;
+    const tx = this.data.credit_transactions.find(t => t.job_id === jobId && t.status === 'reserved');
+    if (!tx) return false;
+
+    const user = this.findById('users', tx.user_id);
+    if (!user) return false;
+
+    const balanceBefore = user.credits;
+    user.credits += tx.amount;
+    this.update('users', user.id, { credits: user.credits });
+
+    tx.status = 'refunded';
+    tx.refund_reason = reason;
+    tx.refunded_at = new Date().toISOString();
+
+    this.insert('credit_transactions', {
+      user_id: user.id,
+      job_id: jobId,
+      type: 'REFUND',
+      amount: tx.amount,
+      balance_before: balanceBefore,
+      balance_after: user.credits,
+      status: 'completed',
+      reason
+    });
+
+    this.insert('audit_logs', {
+      action: 'CREDIT_REFUND',
+      user_id: user.id,
+      job_id: jobId,
+      amount: tx.amount,
+      reason,
+      balance_after: user.credits,
+      timestamp: new Date().toISOString()
+    });
+
+    this.save();
+    return true;
   }
 }
 

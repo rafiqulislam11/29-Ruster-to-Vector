@@ -431,6 +431,15 @@ export class CanvasEditor {
     return this.objects.filter(o => this.selectedIds.has(o.id));
   }
 
+  requestRender() {
+    if (this._renderRafPending) return;
+    this._renderRafPending = true;
+    requestAnimationFrame(() => {
+      this._renderRafPending = false;
+      this.render();
+    });
+  }
+
   render() {
     const { width, height } = this.canvas;
     const ctx = this.ctx;
@@ -462,7 +471,11 @@ export class CanvasEditor {
         ctx.drawImage(obj.img, 0, 0, obj.width, obj.height);
       } else if (obj.type === 'path' && obj.d) {
         try {
-          const path2d = new Path2D(obj.d);
+          if (!obj._path2d || obj._lastD !== obj.d) {
+            obj._path2d = new Path2D(obj.d);
+            obj._lastD = obj.d;
+          }
+          const path2d = obj._path2d;
           if (obj.fill && obj.fill !== 'none') {
             ctx.fillStyle = obj.fill;
             ctx.fill(path2d);
@@ -771,7 +784,7 @@ export class CanvasEditor {
       this.pan.x += dx;
       this.pan.y += dy;
       this.dragStartScreen = { x: e.clientX, y: e.clientY };
-      this.render();
+      this.requestRender();
       return;
     }
 
@@ -794,13 +807,13 @@ export class CanvasEditor {
           obj.y = orig.y + dy;
         }
       });
-      this.render();
+      this.requestRender();
     } else if (this.dragAction === 'resize') {
       const selected = this.getSelectedObjects();
       const origBbox = this.dragOriginals.get('__bbox__');
       if (origBbox && selected.length > 0) {
         this.applyResize(dx, dy, origBbox);
-        this.render();
+        this.requestRender();
       }
     } else if (this.dragAction === 'rotate') {
       const origBbox = this.dragOriginals.get('__bbox__');
@@ -813,7 +826,7 @@ export class CanvasEditor {
           const obj = this.objects.find(o => o.id === id);
           if (obj) obj.rotation = deg;
         });
-        this.render();
+        this.requestRender();
       }
     } else if (this.dragAction === 'marquee') {
       const w = coords.x - this.dragStart.x;
@@ -837,7 +850,7 @@ export class CanvasEditor {
         if (inBox) this.selectedIds.add(obj.id);
       });
 
-      this.render();
+      this.requestRender();
       this.onSelectionChange(this.selectedObjects);
     }
   }

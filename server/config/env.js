@@ -3,17 +3,20 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const config = {
   port: parseInt(process.env.PORT || '5000', 10),
-  nodeEnv: process.env.NODE_ENV || 'development',
-  authSecret: process.env.AUTH_SECRET || 'creativeforge_dev_secret_key_123',
+  nodeEnv: process.env.APP_ENV || process.env.NODE_ENV || 'development',
+  authSecret: process.env.SESSION_SECRET || process.env.AUTH_SECRET || 'creativeforge_dev_secret_key_123',
+  databaseUrl: process.env.DATABASE_URL || '',
   databasePath: process.env.DATABASE_PATH || './data/creativeforge.json',
   storage: {
-    driver: process.env.STORAGE_DRIVER || 'local',
+    driver: process.env.STORAGE_PROVIDER || process.env.STORAGE_DRIVER || 'local',
     localDir: process.env.STORAGE_LOCAL_DIR || './storage',
-    maxSizeMb: parseInt(process.env.MAX_UPLOAD_SIZE_MB || '50', 10)
+    maxSizeMb: parseInt(process.env.MAX_UPLOAD_SIZE_MB || '50', 10),
+    maxBatchFiles: parseInt(process.env.MAX_BATCH_FILES || '500', 10)
   },
   ai: {
-    provider: process.env.AI_PROVIDER || 'mock',
-    apiKey: process.env.AI_PROVIDER_API_KEY || '',
+    provider: process.env.AI_PROVIDER || 'none',
+    apiKey: process.env.AI_API_KEY || process.env.AI_PROVIDER_API_KEY || '',
+    model: process.env.AI_MODEL || '',
     endpoint: process.env.AI_PROVIDER_ENDPOINT || ''
   },
   backup: {

@@ -94,7 +94,7 @@ export class ImageUpscalerEngine {
   /**
    * Calculate target output dimensions based on target tier and aspect ratio
    */
-  static getResolution(source, targetTier = '4K', customWidth = null, customHeight = null) {
+  static getResolution(source, targetTier = '4K', customWidth = null, customHeight = null, maxDimension = null) {
     const origW = source.naturalWidth || source.width || 1280;
     const origH = source.naturalHeight || source.height || 720;
     const aspect = origW / origH;
@@ -130,6 +130,17 @@ export class ImageUpscalerEngine {
       }
     }
 
+    // Constraint down for interactive real-time previews to prevent UI freezing
+    if (maxDimension && (outW > maxDimension || outH > maxDimension)) {
+      if (outW >= outH) {
+        outH = Math.max(1, Math.round((outH * maxDimension) / outW));
+        outW = maxDimension;
+      } else {
+        outW = Math.max(1, Math.round((outW * maxDimension) / outH));
+        outH = maxDimension;
+      }
+    }
+
     return { width: Math.max(1, outW), height: Math.max(1, outH) };
   }
 
@@ -155,9 +166,10 @@ export class ImageUpscalerEngine {
     const customWidth = options.customWidth || null;
     const customHeight = options.customHeight || null;
 
+    const maxDimension = options.maxDimension || (options.isPreview ? 1280 : null);
     const origW = source.naturalWidth || source.width || 1280;
     const origH = source.naturalHeight || source.height || 720;
-    const { width: outW, height: outH } = this.getResolution(source, targetTier, customWidth, customHeight);
+    const { width: outW, height: outH } = this.getResolution(source, targetTier, customWidth, customHeight, maxDimension);
 
     // Step 1: Pre-process source to clean heavy compression blocks before scaling up
     let preCanvas = document.createElement('canvas');
@@ -187,7 +199,7 @@ export class ImageUpscalerEngine {
       nextCtx.drawImage(curCanvas, 0, 0, nextW, nextH);
 
       // Intermediate gentle sharpening to preserve structure between scales
-      if (sharpness > 40) {
+      if (sharpness > 40 && !options.isPreview) {
         this.applyIntermediateSharpen(nextCtx, nextW, nextH, 0.18);
       }
 
@@ -210,18 +222,13 @@ export class ImageUpscalerEngine {
       this.applyAntiHaloSharpen(ctx, outW, outH, sharpness, detailEnhancement, edgeEnhancement, deblur);
     }
 
-    // Step 4: Adaptive Contrast & Dynamic Range Restoration (CLAHE-inspired curve)
-    if (contrast > 0) {
-      this.applyAdaptiveContrast(ctx, outW, outH, contrast);
+    // Step 4 & 5: Combined Adaptive Contrast (LUT) & Color Vibrance in a single fast pass
+    if (contrast > 0 || vibrance > 0) {
+      this.applyContrastAndVibrance(ctx, outW, outH, contrast, vibrance);
     }
 
-    // Step 5: Color Vibrancy & Tone Revival
-    if (vibrance > 0) {
-      this.applyColorVibrance(ctx, outW, outH, vibrance);
-    }
-
-    // Step 6: Final micro-denoise pass if configured
-    if (noiseReduction > 40) {
+    // Step 6: Final micro-denoise pass if configured (skip in preview for 60fps responsiveness)
+    if (noiseReduction > 40 && !options.isPreview) {
       this.applyNoiseArtifactSuppression(ctx, outW, outH, noiseReduction * 0.4, artifactReduction * 0.4);
     }
 
@@ -239,62 +246,124 @@ export class ImageUpscalerEngine {
   }
 
   /**
+   * High-Performance Combined Contrast & Color Vibrance (Single pass with 256-entry S-curve LUT)
+   */
+  static applyContrastAndVibrance(ctx, w, h, contrastAmount, vibranceAmount) {
+    if (contrastAmount <= 0 && vibranceAmount <= 0) return;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    const hasContrast = contrastAmount > 0;
+    const contrastLUT = new Uint8Array(256);
+    if (hasContrast) {
+      const factor = (259 * (contrastAmount + 255)) / (255 * (259 - contrastAmount));
+      for (let i = 0; i < 256; i++) {
+        const val = factor * (i - 128) + 128;
+        contrastLUT[i] = val < 0 ? 0 : (val > 255 ? 255 : (val | 0));
+      }
+    }
+
+    const hasVibrance = vibranceAmount > 0;
+    const vibAmount = hasVibrance ? (vibranceAmount / 100) * 0.7 : 0;
+    const len = data.length;
+
+    for (let i = 0; i < len; i += 4) {
+      let r = hasContrast ? contrastLUT[data[i]] : data[i];
+      let g = hasContrast ? contrastLUT[data[i + 1]] : data[i + 1];
+      let b = hasContrast ? contrastLUT[data[i + 2]] : data[i + 2];
+
+      if (hasVibrance) {
+        const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        if (max > 0) {
+          const sat = (max - min) / max;
+          const boost = (1.0 - sat) * vibAmount;
+          const luma = (r * 299 + g * 587 + b * 114) / 1000;
+          r = r + (r - luma) * boost;
+          g = g + (g - luma) * boost;
+          b = b + (b - luma) * boost;
+          r = r < 0 ? 0 : (r > 255 ? 255 : (r | 0));
+          g = g < 0 ? 0 : (g > 255 ? 255 : (g | 0));
+          b = b < 0 ? 0 : (b > 255 ? 255 : (b | 0));
+        }
+      }
+
+      data[i]     = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  /**
    * Edge-preserving Bilateral Denoising:
    * Smooths flat regions to eliminate JPEG macroblocks, ringing, and camera noise
-   * while strictly preserving edge gradients.
+   * while strictly preserving edge gradients with zero heap allocations in inner loop.
    */
   static applyBilateralDenoise(ctx, w, h, noiseRed, artifactRed) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
     const src = new Uint8ClampedArray(data);
 
-    const edgeThreshold = Math.max(12, 45 - (artifactRed * 0.3)); // Pixel intensity delta to consider an edge
+    const edgeThreshold = Math.max(12, 45 - (artifactRed * 0.3)) * 3;
     const blendFactor = Math.min(0.65, (noiseRed + artifactRed) / 240);
+    const invBlend = 1 - blendFactor;
 
     for (let y = 1; y < h - 1; y++) {
       const row = y * w;
+      const topRow = (y - 1) * w;
+      const btmRow = (y + 1) * w;
+
       for (let x = 1; x < w - 1; x++) {
         const idx = (row + x) * 4;
         const cr = src[idx];
         const cg = src[idx + 1];
         const cb = src[idx + 2];
 
-        // Sample 4 cross neighbors
-        const nIndices = [
-          ((y - 1) * w + x) * 4,
-          ((y + 1) * w + x) * 4,
-          (row + (x - 1)) * 4,
-          (row + (x + 1)) * 4
-        ];
-
         let sumR = cr, sumG = cg, sumB = cb;
         let weightSum = 1;
 
-        for (let i = 0; i < 4; i++) {
-          const ni = nIndices[i];
-          const nr = src[ni];
-          const ng = src[ni + 1];
-          const nb = src[ni + 2];
-
-          // Compute color distance
-          const dist = Math.abs(cr - nr) + Math.abs(cg - ng) + Math.abs(cb - nb);
-
-          if (dist < edgeThreshold * 3) {
-            const w = 1.0 - (dist / (edgeThreshold * 3));
-            sumR += nr * w;
-            sumG += ng * w;
-            sumB += nb * w;
-            weightSum += w;
-          }
+        // Neighbor 1: Top
+        const ni1 = (topRow + x) * 4;
+        const d1 = Math.abs(cr - src[ni1]) + Math.abs(cg - src[ni1 + 1]) + Math.abs(cb - src[ni1 + 2]);
+        if (d1 < edgeThreshold) {
+          const w1 = 1.0 - (d1 / edgeThreshold);
+          sumR += src[ni1] * w1; sumG += src[ni1 + 1] * w1; sumB += src[ni1 + 2] * w1;
+          weightSum += w1;
         }
 
-        const avgR = sumR / weightSum;
-        const avgG = sumG / weightSum;
-        const avgB = sumB / weightSum;
+        // Neighbor 2: Bottom
+        const ni2 = (btmRow + x) * 4;
+        const d2 = Math.abs(cr - src[ni2]) + Math.abs(cg - src[ni2 + 1]) + Math.abs(cb - src[ni2 + 2]);
+        if (d2 < edgeThreshold) {
+          const w2 = 1.0 - (d2 / edgeThreshold);
+          sumR += src[ni2] * w2; sumG += src[ni2 + 1] * w2; sumB += src[ni2 + 2] * w2;
+          weightSum += w2;
+        }
 
-        data[idx]     = Math.round(cr * (1 - blendFactor) + avgR * blendFactor);
-        data[idx + 1] = Math.round(cg * (1 - blendFactor) + avgG * blendFactor);
-        data[idx + 2] = Math.round(cb * (1 - blendFactor) + avgB * blendFactor);
+        // Neighbor 3: Left
+        const ni3 = (row + x - 1) * 4;
+        const d3 = Math.abs(cr - src[ni3]) + Math.abs(cg - src[ni3 + 1]) + Math.abs(cb - src[ni3 + 2]);
+        if (d3 < edgeThreshold) {
+          const w3 = 1.0 - (d3 / edgeThreshold);
+          sumR += src[ni3] * w3; sumG += src[ni3 + 1] * w3; sumB += src[ni3 + 2] * w3;
+          weightSum += w3;
+        }
+
+        // Neighbor 4: Right
+        const ni4 = (row + x + 1) * 4;
+        const d4 = Math.abs(cr - src[ni4]) + Math.abs(cg - src[ni4 + 1]) + Math.abs(cb - src[ni4 + 2]);
+        if (d4 < edgeThreshold) {
+          const w4 = 1.0 - (d4 / edgeThreshold);
+          sumR += src[ni4] * w4; sumG += src[ni4 + 1] * w4; sumB += src[ni4 + 2] * w4;
+          weightSum += w4;
+        }
+
+        const invWeight = 1 / weightSum;
+        data[idx]     = (cr * invBlend + (sumR * invWeight) * blendFactor) | 0;
+        data[idx + 1] = (cg * invBlend + (sumG * invWeight) * blendFactor) | 0;
+        data[idx + 2] = (cb * invBlend + (sumB * invWeight) * blendFactor) | 0;
       }
     }
 
@@ -312,28 +381,30 @@ export class ImageUpscalerEngine {
 
     // Compute effective sharpening multiplier
     const strength = ((sharpness / 100) * 0.65) + ((detail / 100) * 0.25) + ((edgeClarity / 100) * 0.25) + ((deblur / 100) * 0.3);
-    const haloClamp = 38; // Maximum allowable deviation from original to prevent white halos
+    const haloClamp = 38;
 
     for (let y = 1; y < h - 1; y++) {
       const row = y * w;
+      const topRow = (y - 1) * w;
+      const btmRow = (y + 1) * w;
+
       for (let x = 1; x < w - 1; x++) {
         const idx = (row + x) * 4;
+        const topIdx = (topRow + x) * 4;
+        const btmIdx = (btmRow + x) * 4;
+        const leftIdx = (row + x - 1) * 4;
+        const rightIdx = (row + x + 1) * 4;
 
         for (let c = 0; c < 3; c++) {
           const center = src[idx + c];
-          const top    = src[((y - 1) * w + x) * 4 + c];
-          const bottom = src[((y + 1) * w + x) * 4 + c];
-          const left   = src[(row + (x - 1)) * 4 + c];
-          const right  = src[(row + (x + 1)) * 4 + c];
-
-          const laplacian = (top + bottom + left + right) - (center * 4);
+          const laplacian = (src[topIdx + c] + src[btmIdx + c] + src[leftIdx + c] + src[rightIdx + c]) - (center * 4);
           let diff = -laplacian * strength;
 
-          // Anti-halo clamp
           if (diff > haloClamp) diff = haloClamp;
           else if (diff < -haloClamp) diff = -haloClamp;
 
-          data[idx + c] = Math.min(255, Math.max(0, Math.round(center + diff)));
+          const res = center + diff;
+          data[idx + c] = res < 0 ? 0 : (res > 255 ? 255 : (res | 0));
         }
       }
     }

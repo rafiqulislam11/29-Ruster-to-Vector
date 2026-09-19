@@ -346,13 +346,60 @@ export class PrintExporter {
 
       eps += `newpath\n`;
       const matches = d.match(/[MLHVCSQTAZ][^MLHVCSQTAZ]*/gi) || [];
+      let curX = 0;
+      let curY = 0;
+      let startX = 0;
+      let startY = 0;
+
       matches.forEach(cmd => {
         const type = cmd[0];
         const nums = (cmd.slice(1).match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
-        if (type === 'M' && nums.length >= 2) eps += `${nums[0]} ${nums[1]} m\n`;
-        else if (type === 'L' && nums.length >= 2) eps += `${nums[0]} ${nums[1]} l\n`;
-        else if (type === 'C' && nums.length >= 6) eps += `${nums[0]} ${nums[1]} ${nums[2]} ${nums[3]} ${nums[4]} ${nums[5]} c\n`;
-        else if (type === 'Z' || type === 'z') eps += `cp\n`;
+        if ((type === 'M' || type === 'm') && nums.length >= 2) {
+          curX = type === 'm' ? curX + nums[0] : nums[0];
+          curY = type === 'm' ? curY + nums[1] : nums[1];
+          startX = curX;
+          startY = curY;
+          eps += `${curX.toFixed(3)} ${curY.toFixed(3)} m\n`;
+        } else if ((type === 'L' || type === 'l') && nums.length >= 2) {
+          curX = type === 'l' ? curX + nums[0] : nums[0];
+          curY = type === 'l' ? curY + nums[1] : nums[1];
+          eps += `${curX.toFixed(3)} ${curY.toFixed(3)} l\n`;
+        } else if (type === 'H' || type === 'h') {
+          curX = type === 'h' ? curX + nums[0] : nums[0];
+          eps += `${curX.toFixed(3)} ${curY.toFixed(3)} l\n`;
+        } else if (type === 'V' || type === 'v') {
+          curY = type === 'v' ? curY + nums[0] : nums[0];
+          eps += `${curX.toFixed(3)} ${curY.toFixed(3)} l\n`;
+        } else if ((type === 'C' || type === 'c') && nums.length >= 6) {
+          const cx1 = type === 'c' ? curX + nums[0] : nums[0];
+          const cy1 = type === 'c' ? curY + nums[1] : nums[1];
+          const cx2 = type === 'c' ? curX + nums[2] : nums[2];
+          const cy2 = type === 'c' ? curY + nums[3] : nums[3];
+          curX = type === 'c' ? curX + nums[4] : nums[4];
+          curY = type === 'c' ? curY + nums[5] : nums[5];
+          eps += `${cx1.toFixed(3)} ${cy1.toFixed(3)} ${cx2.toFixed(3)} ${cy2.toFixed(3)} ${curX.toFixed(3)} ${curY.toFixed(3)} c\n`;
+        } else if ((type === 'Q' || type === 'q') && nums.length >= 4) {
+          // Quadratic Bézier to Cubic Bézier exact mathematical conversion:
+          // C1 = P0 + (2/3) * (P1 - P0)
+          // C2 = P2 + (2/3) * (P1 - P2)
+          const qx1 = type === 'q' ? curX + nums[0] : nums[0];
+          const qy1 = type === 'q' ? curY + nums[1] : nums[1];
+          const qx2 = type === 'q' ? curX + nums[2] : nums[2];
+          const qy2 = type === 'q' ? curY + nums[3] : nums[3];
+
+          const cx1 = curX + (2 / 3) * (qx1 - curX);
+          const cy1 = curY + (2 / 3) * (qy1 - curY);
+          const cx2 = qx2 + (2 / 3) * (qx1 - qx2);
+          const cy2 = qy2 + (2 / 3) * (qy1 - qy2);
+
+          curX = qx2;
+          curY = qy2;
+          eps += `${cx1.toFixed(3)} ${cy1.toFixed(3)} ${cx2.toFixed(3)} ${cy2.toFixed(3)} ${curX.toFixed(3)} ${curY.toFixed(3)} c\n`;
+        } else if (type === 'Z' || type === 'z') {
+          curX = startX;
+          curY = startY;
+          eps += `cp\n`;
+        }
       });
       eps += `f\n`;
     });

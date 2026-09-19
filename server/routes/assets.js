@@ -7,11 +7,13 @@ const { authenticate } = require('../middleware/auth');
 const db = require('../db/database');
 const storage = require('../services/storage-adapter');
 
+const SvgSanitizer = require('../services/svg-sanitizer');
+
 /**
  * Universal Upload Endpoint
  * Handles single or multiple image uploads non-destructively
  */
-router.post('/upload', authenticate, upload.array('images', 1000), async (req, res) => {
+router.post('/upload', authenticate, upload.array('images', 1000), upload.validateUploadedFiles, async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No image files uploaded' });
@@ -21,13 +23,25 @@ router.post('/upload', authenticate, upload.array('images', 1000), async (req, r
     const createdAssets = [];
 
     for (const file of req.files) {
-      const originalName = file.originalname;
+      const originalName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
       const fileUrl = `/storage/originals/${file.filename}`;
       const fileSize = file.size;
       const mimeType = file.mimetype;
 
       // Extract basic image metadata (estimated/actual)
-      const isSvg = mimeType === 'image/svg+xml';
+      const isSvg = mimeType === 'image/svg+xml' || path.extname(originalName).toLowerCase() === '.svg';
+      
+      // If SVG, sanitize the file content on disk
+      if (isSvg && fs.existsSync(file.path)) {
+        try {
+          const rawSvg = fs.readFileSync(file.path, 'utf8');
+          const sanitizedSvg = SvgSanitizer.sanitize(rawSvg);
+          fs.writeFileSync(file.path, sanitizedSvg, 'utf8');
+        } catch (svgErr) {
+          console.warn('[Upload SVG Sanitization Warning]:', svgErr.message);
+        }
+      }
+
       let width = 1920;
       let height = 1080;
 
