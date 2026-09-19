@@ -94,9 +94,9 @@ export class DashboardView {
                 <span style="font-size:1.2rem;">⬡</span>
                 <span style="font-size:0.75rem; font-weight:600;">Vector Studio</span>
               </button>
-              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_bg_remove_white" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
-                <span style="font-size:1.2rem;">✂</span>
-                <span style="font-size:0.75rem; font-weight:600;">BG Studio</span>
+              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_bg_ai_photo" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">🤖</span>
+                <span style="font-size:0.75rem; font-weight:600;">AI Cutout</span>
               </button>
               <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_upscaler" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
                 <span style="font-size:1.2rem;">⚡</span>

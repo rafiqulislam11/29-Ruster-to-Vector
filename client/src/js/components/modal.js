@@ -297,7 +297,8 @@ export class ModalManager {
             <select id="batch-tool-select" style="width:100%; font-weight:600;">
               <option value="tool_upscaler" ${activeTool === 'tool_upscaler' ? 'selected' : ''}>AI Image Upscaler (✦ 300 PPI Print Master)</option>
               <option value="tool_vector_convert" ${activeTool.includes('vector') ? 'selected' : ''}>Image → Vector (Authentic Scalable SVG + 300 PPI)</option>
-              <option value="tool_bg_remove_white" ${activeTool.includes('bg_') || activeTool.includes('remove') ? 'selected' : ''}>Remove Background (Transparent 300 PPI PNG)</option>
+              <option value="tool_bg_ai_photo" ${activeTool === 'tool_bg_ai_photo' || activeTool.includes('bg_') || activeTool.includes('remove') ? 'selected' : ''}>🤖 AI Photo Background Remover (Portraits & Cutouts 300 PPI)</option>
+              <option value="tool_bg_remove_white" ${activeTool === 'tool_bg_remove_white' ? 'selected' : ''}>✂ Remove White Background (Studio 300 PPI PNG)</option>
               <option value="tool_film_grain" ${activeTool === 'tool_film_grain' ? 'selected' : ''}>Film Grain Engine (35mm Analog Texture 300 PPI)</option>
               <option value="tool_fractal_glass_1" ${activeTool.includes('fractal') ? 'selected' : ''}>Fractal Glass Shader (Prism Distortion 300 PPI)</option>
               <option value="tool_gradient_extract" ${activeTool.includes('gradient') ? 'selected' : ''}>Image → Gradient Artwork (Multi-Stop 300 PPI)</option>

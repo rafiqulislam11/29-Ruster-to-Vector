@@ -186,6 +186,7 @@ const initialSchema = {
     { id: 'tool_gradient_maker_4', name: 'Gradient Maker 4', category: 'image', credit_cost: 1, enabled: true },
     { id: 'tool_vector_convert', name: 'Image → Vector', category: 'vector', credit_cost: 2, enabled: true },
     { id: 'tool_vector_trace', name: 'Vector Trace', category: 'vector', credit_cost: 2, enabled: true },
+    { id: 'tool_bg_ai_photo', name: 'AI Photo Background Remover', category: 'background', credit_cost: 1, enabled: true },
     { id: 'tool_bg_remove_white', name: 'Remove White Background', category: 'vector', credit_cost: 1, enabled: true },
     { id: 'tool_bg_transparent', name: 'Transparent Background', category: 'vector', credit_cost: 1, enabled: true },
     { id: 'tool_icon_sheet_1', name: 'Icon Sheet Maker 1 (Minimal)', category: 'icon', credit_cost: 2, enabled: true },

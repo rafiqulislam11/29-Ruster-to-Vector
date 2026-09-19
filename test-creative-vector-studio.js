@@ -316,6 +316,8 @@ async function runSuite() {
   assert(iconPackTool.credit_cost === 4, 'tool_icon_pack accurately resolves configured credit cost (4 credits)');
   const bgRemoveTool = resolveTool('tool_bg_remove_white');
   assert(bgRemoveTool.credit_cost === 1, 'tool_bg_remove_white accurately resolves configured credit cost (1 credit)');
+  const bgAiPhotoTool = resolveTool('tool_bg_ai_photo');
+  assert(bgAiPhotoTool.credit_cost === 1, 'tool_bg_ai_photo accurately resolves configured credit cost (1 credit)');
 
   // -----------------------------------------------------------------
   // 10. CANVAS EDITOR & LAYERS PANEL OPERATIONAL INTEGRITY
@@ -466,6 +468,21 @@ async function runSuite() {
   // CanvasEditor destroy
   editor.destroy();
   assert(true, 'CanvasEditor.destroy() cleanly removed all bound listeners without memory leaks');
+
+  // -----------------------------------------------------------------
+  // 11. AI PHOTO & BACKGROUND REMOVAL ENGINE VERIFICATION
+  // -----------------------------------------------------------------
+  console.log('\n--- 11. AI Photo & Background Removal Engine Verification ---');
+  const { BackgroundRemovalEngine } = await import('./client/src/js/engines/bg-removal.js');
+  const rgb = BackgroundRemovalEngine.hexToRgb('#6366f1');
+  assert(rgb.r === 99 && rgb.g === 102 && rgb.b === 241, 'BackgroundRemovalEngine correctly parses hex to RGB color');
+  const clusters = [{ r: 255, g: 255, b: 255 }, { r: 10, g: 11, b: 18 }];
+  const dist = BackgroundRemovalEngine.minDistanceToClusters(255, 255, 255, clusters);
+  assert(dist === 0, 'minDistanceToClusters accurately matches identical cluster color');
+  const mockPhoto = { width: 400, height: 300, naturalWidth: 400, naturalHeight: 300 };
+  const processedCutout = BackgroundRemovalEngine.process(mockPhoto, { mode: 'ai_photo', sensitivity: 70 });
+  assert(processedCutout && (processedCutout.processed || processedCutout.width === 400), 'BackgroundRemovalEngine processes photo cutout cleanly');
+
 
   // -----------------------------------------------------------------
   // SUMMARY

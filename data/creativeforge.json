@@ -5653,6 +5653,13 @@
       "enabled": true
     },
     {
+      "id": "tool_bg_ai_photo",
+      "name": "AI Photo Background Remover",
+      "category": "background",
+      "credit_cost": 1,
+      "enabled": true
+    },
+    {
       "id": "tool_bg_remove_white",
       "name": "Remove White Background",
       "category": "vector",

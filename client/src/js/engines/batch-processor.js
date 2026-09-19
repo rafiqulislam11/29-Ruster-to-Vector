@@ -79,12 +79,22 @@ export class BatchProcessorEngine {
         edgeEnhancement: params.upscaleEdgeEnhancement || 50
       });
 
-    } else if (tool.includes('remove') || tool.includes('transparent')) {
+    } else if (tool.includes('remove') || tool.includes('transparent') || tool.startsWith('tool_bg_')) {
+      let bgMode = params.bgMode;
+      if (tool === 'tool_bg_ai_photo') bgMode = 'ai_photo';
+      else if (tool === 'tool_bg_remove_white') bgMode = 'white';
+      else if (tool === 'tool_bg_transparent') bgMode = 'auto';
+      else if (tool === 'tool_bg_custom') bgMode = 'custom';
+      if (!bgMode) bgMode = 'ai_photo';
+
       outCanvas = BackgroundRemovalEngine.process(img, {
-        mode: params.bgMode || 'white',
+        mode: bgMode,
+        sensitivity: params.bgSensitivity || 65,
         customColor: params.bgCustomColor || '#ffffff',
         tolerance: params.bgTolerance || 28,
-        feather: params.bgFeather || 2,
+        feather: params.bgFeather || 3,
+        contiguous: params.bgContiguous !== false,
+        defringe: params.bgDefringe || 35,
         shadowPreservation: params.bgShadowPreserve !== false
       });
 

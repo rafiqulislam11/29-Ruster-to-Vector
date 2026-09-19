@@ -146,10 +146,10 @@ export class LandingView {
             </div>
 
             <div class="feature-card" data-seo-tool="background-remover">
-              <div class="feature-card-icon">✂</div>
-              <h3 class="feature-card-title">Remove White Background</h3>
+              <div class="feature-card-icon">🤖</div>
+              <h3 class="feature-card-title">AI Photo & Background Remover</h3>
               <p class="feature-card-desc">
-                Intelligent color distance detection, smooth edge feathering, and contact shadow preservation for pure transparent cutouts.
+                Intelligent photo saliency, perimeter contour matting, hair preservation, and clean transparent 300 PPI cutouts for portraits and products.
               </p>
               <button class="btn btn-secondary btn-sm" style="align-self:flex-start;">Open Cutout Tool →</button>
             </div>
@@ -306,12 +306,13 @@ export class LandingView {
         ]
       },
       'background-remover': {
-        title: 'Remove White & Custom Backgrounds Intelligently',
-        tagline: 'Precision Alpha Cutouts with Shadow Preservation',
-        desc: 'Isolate subjects and logos with smooth feathering and subtle contact shadow retention.',
-        toolId: 'tool_bg_remove_white',
+        title: 'AI Photo & Background Remover Online',
+        tagline: 'Precision Saliency Cutouts, Hair Matting & Shadow Retention',
+        desc: 'Isolate portraits, products, and objects from complex photographs with edge-aware alpha matting and lossless transparent 300 PPI export.',
+        toolId: 'tool_bg_ai_photo',
         faqs: [
-          { q: 'Does it support transparent PNG export?', a: 'Yes, all cutouts are exported as lossless transparent PNGs.' }
+          { q: 'Can it remove backgrounds from complex photos?', a: 'Yes, the AI Photo Cutout engine segments portraits, clothing, pets, and products from real-world backgrounds with soft hair matting and edge defringing.' },
+          { q: 'Does it support transparent PNG export?', a: 'Yes, all cutouts are exported as lossless transparent PNGs at up to 300 PPI.' }
         ]
       },
       'icon-pack-maker': {

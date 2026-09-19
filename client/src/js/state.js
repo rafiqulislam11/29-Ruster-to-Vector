@@ -110,14 +110,17 @@ class StateStore {
         vectorBgMode: 'transparent', // 'transparent' | 'white' | 'none'
 
         // Background Studio
-        bgMode: 'white', // 'white' | 'black' | 'custom' | 'auto'
+        bgMode: 'ai_photo', // 'ai_photo' | 'white' | 'black' | 'custom' | 'auto'
         bgCustomColor: '#ffffff',
+        bgSensitivity: 65,
         bgTolerance: 28,
-        bgFeather: 2,
+        bgFeather: 3,
+        bgContiguous: true,
+        bgDefringe: 35,
         bgShadowPreserve: true,
         bgEdgeRefine: 50,
         bgFineEdgePreserve: true,
-        bgPreview: 'checkerboard', // 'checkerboard' | 'white' | 'black' | 'custom'
+        bgPreview: 'checkerboard', // 'checkerboard' | 'dark' | 'white' | 'neon' | 'contrast'
         bgPreviewColor: '#181b22',
 
         // Upscale Studio

@@ -206,7 +206,12 @@ export class StudioView {
             <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
               <div class="tool-category-header">
                 <span>BACKGROUND STUDIO</span>
-                <span class="badge badge-green">3 Tools</span>
+                <span class="badge badge-pink" style="font-size:0.6rem; padding:1px 5px;">AI 4 Tools</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_bg_ai_photo' ? 'active' : ''}" data-tool="tool_bg_ai_photo" style="background:linear-gradient(135deg, rgba(99,102,241,0.14), rgba(236,72,153,0.14)); border:1px solid rgba(99,102,241,0.3); border-radius:6px; margin-bottom:3px;">
+                <span class="tool-item-icon">🤖</span>
+                <span style="font-weight:700;">AI Photo Cutout</span>
+                <span class="badge badge-pink" style="font-size:0.55rem; padding:1px 4px; margin-left:auto;">AI</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_bg_remove_white' ? 'active' : ''}" data-tool="tool_bg_remove_white">
                 <span class="tool-item-icon">✂</span>
@@ -218,7 +223,7 @@ export class StudioView {
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_bg_custom' ? 'active' : ''}" data-tool="tool_bg_custom">
                 <span class="tool-item-icon">🎨</span>
-                <span>Custom Color / Shadow</span>
+                <span>Custom Color / Key</span>
               </div>
             </div>
 
@@ -1280,53 +1285,159 @@ export class StudioView {
           </div>
         </div>
       `;
-    } else if (tool === 'tool_bg_custom' || tool.includes('remove') || tool.includes('transparent')) {
+    } else if (tool.startsWith('tool_bg_') || tool.includes('remove') || tool.includes('transparent')) {
+      const currentBgMode = tool === 'tool_bg_ai_photo' ? 'ai_photo' : (tool === 'tool_bg_remove_white' ? 'white' : (tool === 'tool_bg_custom' ? 'custom' : (tool === 'tool_bg_transparent' ? 'auto' : (p.bgMode || 'ai_photo'))));
+      const previewBackdrop = p.bgPreview || 'checkerboard';
+
       content = `
         <div class="panel-header">
-          <span class="panel-title">Background Studio</span>
-          <span class="badge badge-green">1 Credit</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="panel-title">${currentBgMode === 'ai_photo' ? 'AI Photo Background Remover' : 'Background Studio'}</span>
+          </div>
+          <span class="badge badge-pink">${currentBgMode === 'ai_photo' ? '✦ AI Engine' : '1 Credit'}</span>
         </div>
         <div class="panel-content">
-          ${tool === 'tool_bg_custom' ? `
+          <!-- Cutout Mode Selector -->
+          <div class="control-group">
+            <div class="control-label"><span>Cutout Engine Mode</span></div>
+            <div style="display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:5px; margin-bottom:5px;">
+              <button class="btn btn-sm ${currentBgMode === 'ai_photo' ? 'btn-primary' : 'btn-secondary'}" data-bg-mode="ai_photo" style="font-size:0.72rem; padding:4px 6px;">
+                🤖 AI Photo
+              </button>
+              <button class="btn btn-sm ${currentBgMode === 'white' ? 'btn-primary' : 'btn-secondary'}" data-bg-mode="white" style="font-size:0.72rem; padding:4px 6px;">
+                ✂ White BG
+              </button>
+              <button class="btn btn-sm ${currentBgMode === 'black' ? 'btn-primary' : 'btn-secondary'}" data-bg-mode="black" style="font-size:0.72rem; padding:4px 6px;">
+                🖤 Black BG
+              </button>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+              <button class="btn btn-sm ${currentBgMode === 'custom' ? 'btn-primary' : 'btn-secondary'}" data-bg-mode="custom" style="font-size:0.72rem; padding:4px 6px;">
+                🎨 Custom Key
+              </button>
+              <button class="btn btn-sm ${currentBgMode === 'auto' ? 'btn-primary' : 'btn-secondary'}" data-bg-mode="auto" style="font-size:0.72rem; padding:4px 6px;">
+                🌐 Auto Border
+              </button>
+            </div>
+          </div>
+
+          ${currentBgMode === 'ai_photo' ? `
+            <div style="background:linear-gradient(135deg, rgba(99,102,241,0.12), rgba(236,72,153,0.12)); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:0.75rem; line-height:1.4;">
+              <div style="color:var(--accent-secondary); font-weight:700; margin-bottom:2px; display:flex; align-items:center; gap:5px;">
+                <span>✨</span> Smart Photo Saliency & Contour Matting
+              </div>
+              <span style="color:var(--text-secondary);">Isolates portraits, clothing, products, pets, and objects from complex backgrounds with edge barrier protection.</span>
+            </div>
+
+            <!-- Subject Detection Sensitivity -->
             <div class="control-group">
-              <div class="control-label"><span>Target Cutout Color</span></div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <input type="color" id="param-bg-custom-color" value="${p.bgCustomColor || '#ffffff'}" class="color-swatch" style="width:36px; height:36px;" />
-                <span style="font-size:0.75rem; color:var(--text-muted);">Color to remove/replace</span>
+              <div class="control-label">
+                <span>Subject Sensitivity & Isolation</span>
+                <span class="control-value">${p.bgSensitivity ?? 65}%</span>
+              </div>
+              <input type="range" class="range-slider" id="param-bg-sensitivity" min="15" max="95" value="${p.bgSensitivity ?? 65}" />
+              <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); margin-top:2px;">
+                <span>Aggressive Cut</span>
+                <span>Balanced</span>
+                <span>Keep Fine Subject</span>
               </div>
             </div>
-          ` : ''}
 
-          <div class="control-group">
-            <div class="control-label"><span>Color Tolerance</span><span class="control-value">${p.bgTolerance}%</span></div>
-            <input type="range" class="range-slider" id="param-bg-tolerance" min="5" max="80" value="${p.bgTolerance}" />
-          </div>
+            <!-- Edge Feathering & Hair Matting -->
+            <div class="control-group">
+              <div class="control-label">
+                <span>Edge Softness & Hair Matting</span>
+                <span class="control-value">${p.bgFeather ?? 3}px</span>
+              </div>
+              <input type="range" class="range-slider" id="param-bg-feather" min="0" max="15" value="${p.bgFeather ?? 3}" />
+            </div>
 
-          <div class="control-group">
-            <div class="control-label"><span>Edge Feathering</span><span class="control-value">${p.bgFeather}px</span></div>
-            <input type="range" class="range-slider" id="param-bg-feather" min="0" max="10" value="${p.bgFeather}" />
-          </div>
+            <!-- Anti-Halo / Defringing -->
+            <div class="control-group">
+              <div class="control-label">
+                <span>Anti-Halo / Edge Defringe</span>
+                <span class="control-value">${p.bgDefringe ?? 35}%</span>
+              </div>
+              <input type="range" class="range-slider" id="param-bg-defringe" min="0" max="100" value="${p.bgDefringe ?? 35}" />
+            </div>
+          ` : `
+            ${currentBgMode === 'custom' ? `
+              <div class="control-group">
+                <div class="control-label"><span>Target Key Color</span></div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="color" id="param-bg-custom-color" value="${p.bgCustomColor || '#ffffff'}" class="color-swatch" style="width:36px; height:36px; border-radius:6px; cursor:pointer;" />
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Color to make transparent</span>
+                </div>
+              </div>
+            ` : ''}
 
-          <div class="control-group" style="display:flex; align-items:center; justify-content:space-between;">
-            <span style="font-size:0.8rem; font-weight:600;">Preserve Contact Shadows</span>
+            <!-- Color Tolerance -->
+            <div class="control-group">
+              <div class="control-label"><span>Color Tolerance</span><span class="control-value">${p.bgTolerance ?? 28}%</span></div>
+              <input type="range" class="range-slider" id="param-bg-tolerance" min="5" max="85" value="${p.bgTolerance ?? 28}" />
+            </div>
+
+            <!-- Edge Feathering -->
+            <div class="control-group">
+              <div class="control-label"><span>Edge Feathering</span><span class="control-value">${p.bgFeather ?? 2}px</span></div>
+              <input type="range" class="range-slider" id="param-bg-feather" min="0" max="10" value="${p.bgFeather ?? 2}" />
+            </div>
+          `}
+
+          <!-- Contiguous Edge Barrier switch -->
+          <div class="control-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:10px;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:600;">Protect Subject Interior</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Prevents erasing matching colors inside clothes/shoes</div>
+            </div>
             <label class="switch">
-              <input type="checkbox" id="param-bg-shadow" ${p.bgShadowPreserve ? 'checked' : ''} />
+              <input type="checkbox" id="param-bg-contiguous" ${p.bgContiguous !== false ? 'checked' : ''} />
               <span class="switch-slider"></span>
             </label>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:8px; margin-top:20px;">
+          <!-- Contact Shadows switch -->
+          <div class="control-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:600;">Preserve Contact Shadows</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Retains natural ground shadow under product</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="param-bg-shadow" ${p.bgShadowPreserve !== false ? 'checked' : ''} />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- Backdrop Replacement Preview -->
+          <div class="control-group" style="margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:12px;">
+            <div class="control-label"><span>Backdrop Preview Mode</span></div>
+            <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:4px;">
+              <button class="btn btn-sm ${previewBackdrop === 'checkerboard' ? 'btn-primary' : 'btn-glass'}" data-bg-preview="checkerboard" style="padding:4px 2px; font-size:0.65rem;" title="Transparent Grid">🏁 Grid</button>
+              <button class="btn btn-sm ${previewBackdrop === 'dark' ? 'btn-primary' : 'btn-glass'}" data-bg-preview="dark" style="padding:4px 2px; font-size:0.65rem;" title="Charcoal Dark">⬛ Dark</button>
+              <button class="btn btn-sm ${previewBackdrop === 'white' ? 'btn-primary' : 'btn-glass'}" data-bg-preview="white" style="padding:4px 2px; font-size:0.65rem;" title="Pure White">⬜ White</button>
+              <button class="btn btn-sm ${previewBackdrop === 'neon' ? 'btn-primary' : 'btn-glass'}" data-bg-preview="neon" style="padding:4px 2px; font-size:0.65rem;" title="Neon Gradient">🟣 Neon</button>
+              <button class="btn btn-sm ${previewBackdrop === 'contrast' ? 'btn-primary' : 'btn-glass'}" data-bg-preview="contrast" style="padding:4px 2px; font-size:0.65rem;" title="Magenta Proof">🔴 Proof</button>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:8px; margin-top:18px;">
             <button class="btn btn-primary" id="btn-process-tool">
-              Remove Background
+              Process Cutout
             </button>
-            <button class="btn btn-secondary" id="btn-quick-export-300" title="Instant 300 PPI High-Resolution Download">
+            <button class="btn btn-secondary" id="btn-quick-export-300" title="Instant 300 PPI High-Resolution Lossless PNG">
               300 PPI ↓
             </button>
           </div>
 
-          <button class="btn btn-glass btn-sm" id="btn-bg-edit-canvas" style="width:100%; margin-top:8px; border-color:var(--accent-secondary); color:var(--accent-secondary); font-weight:700;">
-            ✏️ Edit Cutout on Canvas
-          </button>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:8px;">
+            <button class="btn btn-glass btn-sm" id="btn-bg-edit-canvas" style="border-color:var(--accent-secondary); color:var(--accent-secondary); font-weight:700;">
+              ✏️ Edit on Canvas
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-bg-stock-ready" style="box-shadow:0 0 12px rgba(99,102,241,0.4);" title="1-Click Stock Ready Commercial Pipeline & ZIP">
+              ⚡ Stock Ready
+            </button>
+          </div>
         </div>
       `;
     } else if (tool.startsWith('tool_icon_sheet')) {
@@ -1531,6 +1642,8 @@ export class StudioView {
         else if (id === 'param-vec-precision') store.state.params.vectorPathPrecision = val;
         else if (id === 'param-bg-tolerance') store.state.params.bgTolerance = val;
         else if (id === 'param-bg-feather') store.state.params.bgFeather = val;
+        else if (id === 'param-bg-sensitivity') store.state.params.bgSensitivity = val;
+        else if (id === 'param-bg-defringe') store.state.params.bgDefringe = val;
         else if (id === 'param-sheet-cols') store.state.params.sheetColumns = val;
         else if (id === 'param-sheet-padding') store.state.params.sheetPadding = val;
         else if (id === 'param-maker-noise') store.state.params.makerNoise = val;
@@ -1550,8 +1663,42 @@ export class StudioView {
         if (id === 'param-vec-remove-white') store.setParam('vectorRemoveWhite', e.target.checked);
         if (id === 'param-vec-evenodd') store.setParam('vectorPreserveHoles', e.target.checked);
         if (id === 'param-bg-shadow') store.setParam('bgShadowPreserve', e.target.checked);
+        if (id === 'param-bg-contiguous') store.setParam('bgContiguous', e.target.checked);
         if (id === 'param-sheet-labels') store.setParam('sheetLabels', e.target.checked);
         this.updateProcessing(true);
+      };
+    });
+
+    // Background Studio Mode Buttons
+    panel.querySelectorAll('[data-bg-mode]').forEach(btn => {
+      btn.onclick = () => {
+        const mode = btn.getAttribute('data-bg-mode');
+        store.setParam('bgMode', mode);
+        if (mode === 'ai_photo') store.setState({ activeTool: 'tool_bg_ai_photo' });
+        else if (mode === 'white') store.setState({ activeTool: 'tool_bg_remove_white' });
+        else if (mode === 'black') store.setState({ activeTool: 'tool_bg_transparent' });
+        else if (mode === 'auto') store.setState({ activeTool: 'tool_bg_transparent' });
+        else if (mode === 'custom') store.setState({ activeTool: 'tool_bg_custom' });
+
+        const toolItems = this.container.querySelectorAll('.tool-nav-item');
+        toolItems.forEach(i => i.classList.remove('active'));
+        const activeNav = this.container.querySelector(`.tool-nav-item[data-tool="${store.getState().activeTool}"]`);
+        if (activeNav) activeNav.classList.add('active');
+
+        this.renderInspector();
+        this.updateProcessing(true);
+      };
+    });
+
+    // Background Studio Backdrop Preview Buttons
+    panel.querySelectorAll('[data-bg-preview]').forEach(btn => {
+      btn.onclick = () => {
+        const prev = btn.getAttribute('data-bg-preview');
+        store.setParam('bgPreview', prev);
+        panel.querySelectorAll('[data-bg-preview]').forEach(b => {
+          b.className = `btn btn-sm ${b === btn ? 'btn-primary' : 'btn-glass'}`;
+        });
+        this.updateCanvasDisplay();
       };
     });
 
@@ -1594,6 +1741,13 @@ export class StudioView {
     const vecStockReadyBtn = panel.querySelector('#btn-vector-stock-ready');
     if (vecStockReadyBtn) {
       vecStockReadyBtn.onclick = () => {
+        const source = this.processedCanvas || store.getState().originalImage;
+        StockReadyWorkflow.openStockReadyModal(source);
+      };
+    }
+    const bgStockReadyBtn = panel.querySelector('#btn-bg-stock-ready');
+    if (bgStockReadyBtn) {
+      bgStockReadyBtn.onclick = () => {
         const source = this.processedCanvas || store.getState().originalImage;
         StockReadyWorkflow.openStockReadyModal(source);
       };
@@ -1807,7 +1961,7 @@ export class StudioView {
     const p = state.params;
 
     // Cache key for instant tool switching
-    const cacheKey = `${tool}_${p.grainPreset || ''}_${p.upscaleResolution || ''}_${p.packStyle || ''}_${p.sheetLayout || ''}`;
+    const cacheKey = `${tool}_${p.grainPreset || ''}_${p.upscaleResolution || ''}_${p.packStyle || ''}_${p.sheetLayout || ''}_${p.bgMode || ''}_${p.bgSensitivity || ''}_${p.bgTolerance || ''}_${p.bgFeather || ''}_${p.bgDefringe || ''}_${p.bgContiguous || ''}_${p.bgShadowPreserve || ''}_${p.bgCustomColor || ''}`;
 
     if (!forceFresh && this.toolCache.has(cacheKey)) {
       const cached = this.toolCache.get(cacheKey);
@@ -1925,13 +2079,23 @@ export class StudioView {
         badge.className = 'badge badge-green';
       }
     } else if (tool.startsWith('tool_bg_') || tool.includes('remove') || tool.includes('transparent')) {
-      const bgMode = tool === 'tool_bg_custom' ? 'custom' : (tool === 'tool_bg_transparent' ? 'auto' : 'white');
+      let bgMode = p.bgMode;
+      if (tool === 'tool_bg_ai_photo') bgMode = 'ai_photo';
+      else if (tool === 'tool_bg_remove_white') bgMode = 'white';
+      else if (tool === 'tool_bg_transparent') bgMode = 'auto';
+      else if (tool === 'tool_bg_custom') bgMode = 'custom';
+      if (!bgMode) bgMode = 'ai_photo';
+
       outCanvas = BackgroundRemovalEngine.process(img, {
         mode: bgMode,
+        sensitivity: p.bgSensitivity ?? 65,
+        tolerance: p.bgTolerance ?? 28,
+        feather: p.bgFeather ?? 3,
+        contiguous: p.bgContiguous !== false,
+        defringe: p.bgDefringe ?? 35,
+        shadowPreservation: p.bgShadowPreserve !== false,
         customColor: p.bgCustomColor || '#ffffff',
-        tolerance: p.bgTolerance,
-        feather: p.bgFeather,
-        shadowPreservation: p.bgShadowPreserve
+        clickPoint: this.bgClickPoint || null
       });
     } else if (tool.startsWith('tool_icon_sheet')) {
       const layoutKey = tool.replace('tool_icon_sheet_', '');
@@ -1996,6 +2160,24 @@ export class StudioView {
     const mode = state.compareMode;
     const sliderPos = state.sliderPos;
 
+    // Dynamic Backdrop Preview Mode (checkerboard, dark, white, neon, contrast)
+    const prevMode = state.params.bgPreview || 'checkerboard';
+    let backdropClass = 'canvas-checkerboard';
+    let backdropStyle = '';
+    if (prevMode === 'dark') {
+      backdropClass = '';
+      backdropStyle = 'background-color:#12141c;';
+    } else if (prevMode === 'white') {
+      backdropClass = '';
+      backdropStyle = 'background-color:#ffffff;';
+    } else if (prevMode === 'neon') {
+      backdropClass = '';
+      backdropStyle = 'background:linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #06b6d4 100%);';
+    } else if (prevMode === 'contrast') {
+      backdropClass = '';
+      backdropStyle = 'background-color:#ff0066;';
+    }
+
     if (mode === 'side-by-side') {
       viewport.innerHTML = `
         <div class="compare-side-by-side">
@@ -2003,7 +2185,7 @@ export class StudioView {
             <span class="side-card-title">Original Source</span>
             <img src="${origImg.src}" class="canvas-element" alt="Original" />
           </div>
-          <div class="side-card canvas-checkerboard" id="proc-card-slot">
+          <div class="side-card ${backdropClass}" id="proc-card-slot" style="${backdropStyle}">
             <span class="side-card-title">CreativeForge Processed (300 PPI Master)</span>
           </div>
         </div>
@@ -2016,7 +2198,7 @@ export class StudioView {
     } else if (mode === 'split') {
       // 50/50 Split Screen view with side badges
       viewport.innerHTML = `
-        <div class="compare-slider-container canvas-checkerboard" id="split-wrap">
+        <div class="compare-slider-container ${backdropClass}" id="split-wrap" style="${backdropStyle}">
           <div id="proc-canvas-holder" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%;"></div>
           <div class="compare-layer-before" style="width: 50%;">
             <img src="${origImg.src}" class="canvas-element" id="orig-layer" alt="Original Source" style="width: 100vw; max-width: none;" />
@@ -2043,7 +2225,7 @@ export class StudioView {
     } else {
       // Interactive slider view with direct canvas mount
       viewport.innerHTML = `
-        <div class="compare-slider-container canvas-checkerboard" id="slider-wrap">
+        <div class="compare-slider-container ${backdropClass}" id="slider-wrap" style="${backdropStyle}">
           <!-- Processed Layer Container -->
           <div id="proc-canvas-holder" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%;"></div>
 

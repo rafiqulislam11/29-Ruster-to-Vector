@@ -71,9 +71,14 @@ router.post('/vector', authenticate, (req, res) => {
   handleProcessRequest('tool_vector_convert', req, res);
 });
 
-// 6. Remove White Background / Transparent Background
+// 6. Remove Background (AI Photo Cutout / White BG / Transparent)
+router.post('/ai-photo-remove-bg', authenticate, (req, res) => {
+  handleProcessRequest('tool_bg_ai_photo', req, res);
+});
+
 router.post('/remove-background', authenticate, (req, res) => {
-  handleProcessRequest('tool_bg_remove_white', req, res);
+  const toolName = req.body.tool || (req.body.mode === 'white' ? 'tool_bg_remove_white' : 'tool_bg_ai_photo');
+  handleProcessRequest(toolName, req, res);
 });
 
 // 7. Icon Sheet Maker
