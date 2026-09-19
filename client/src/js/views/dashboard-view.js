@@ -81,6 +81,58 @@ export class DashboardView {
             </div>
           </div>
 
+          <!-- Studio Quick Launchpad -->
+          <div style="background:var(--bg-secondary); border:1px solid var(--border-subtle); border-radius:12px; padding:18px; margin-bottom:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div style="font-size:0.95rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                <span>✨</span> Quick Studio Launchpad
+              </div>
+              <span style="font-size:0.75rem; color:var(--text-secondary);">Direct access to Creative Vector Studio engines</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:10px;">
+              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_vector_convert" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">⬡</span>
+                <span style="font-size:0.75rem; font-weight:600;">Vector Studio</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_bg_remove_white" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">✂</span>
+                <span style="font-size:0.75rem; font-weight:600;">BG Studio</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_upscaler" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">⚡</span>
+                <span style="font-size:0.75rem; font-weight:600;">AI Upscaler</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_gradient_maker" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">🎨</span>
+                <span style="font-size:0.75rem; font-weight:600;">Gradients</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-tool" data-tool="tool_icon_sheet_1" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">田</span>
+                <span style="font-size:0.75rem; font-weight:600;">Icon Sheets</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-view" data-view="metadata-studio" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">🏷️</span>
+                <span style="font-size:0.75rem; font-weight:600;">Metadata</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-view" data-view="preset-manager" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">⭐</span>
+                <span style="font-size:0.75rem; font-weight:600;">Presets</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-view" data-view="project-manager" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">📁</span>
+                <span style="font-size:0.75rem; font-weight:600;">Project Hub</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-view" data-view="export-center" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">📦</span>
+                <span style="font-size:0.75rem; font-weight:600;">Export Center</span>
+              </button>
+              <button class="btn btn-glass btn-sm btn-quick-view" data-view="settings" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;">
+                <span style="font-size:1.2rem;">⚙️</span>
+                <span style="font-size:0.75rem; font-weight:600;">Settings</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Tab Bar -->
           <div class="dashboard-tabs">
             <div class="dash-tab ${this.currentTab === 'projects' ? 'active' : ''}" id="tab-btn-projects">Recent Projects</div>
@@ -226,6 +278,22 @@ export class DashboardView {
         const tool = e.target.getAttribute('data-tool');
         store.setState({ activeTool: tool });
         this.onOpenStudio();
+      };
+    });
+
+    // Quick Launchpad Handlers
+    this.container.querySelectorAll('.btn-quick-tool').forEach(b => {
+      b.onclick = () => {
+        const tool = b.getAttribute('data-tool');
+        store.setState({ activeTool: tool, currentView: 'studio' });
+        this.onOpenStudio();
+      };
+    });
+
+    this.container.querySelectorAll('.btn-quick-view').forEach(b => {
+      b.onclick = () => {
+        const view = b.getAttribute('data-view');
+        store.setState({ currentView: view });
       };
     });
   }

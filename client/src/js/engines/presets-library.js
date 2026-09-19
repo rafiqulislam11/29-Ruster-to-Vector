@@ -1,155 +1,302 @@
 /**
- * CreativeForge AI — Creative Presets & Template Library
- * Curated professional configurations for Vector Studio, Film Grain, Fractal Glass, and Gradients.
+ * Creative Vector Studio — Comprehensive Presets Library & Manager
+ * Provides curated industry presets for Adobe Stock, Logo Design, Line Art,
+ * Sticker Vector, KDP, Print 300 PPI, etc.
+ * Supports Save, Update, Duplicate, Rename, Delete, Import JSON, and Export JSON.
  */
 
-export const PresetsLibrary = {
-  vector: [
-    {
-      id: 'vec_minimal_icon',
-      name: '✦ Minimalist Icon',
-      desc: 'Super clean 2-color vector silhouettes with maximum curve smoothing',
-      icon: '🎨',
-      params: { vectorColors: 2, vectorDetail: 35, vectorSmoothness: 85, vectorRemoveWhite: true }
-    },
-    {
-      id: 'vec_vintage_stamp',
-      name: '📜 Vintage Stamp',
-      desc: 'Distressed edge contours with classic 4-color letterpress print vibe',
-      icon: '🏛️',
-      params: { vectorColors: 4, vectorDetail: 75, vectorSmoothness: 25, vectorRemoveWhite: true }
-    },
-    {
-      id: 'vec_high_contrast',
-      name: '⚡ High-Contrast Logo',
-      desc: 'Bold vector geometry tuned for modern branding and typography',
-      icon: '💎',
-      params: { vectorColors: 3, vectorDetail: 85, vectorSmoothness: 70, vectorRemoveWhite: true }
-    },
-    {
-      id: 'vec_technical_cad',
-      name: '📐 Technical Blueprint',
-      desc: 'Micro-precision contour lines suitable for laser cutting and CAD export',
-      icon: '📐',
-      params: { vectorColors: 2, vectorDetail: 100, vectorSmoothness: 15, vectorRemoveWhite: false }
-    },
-    {
-      id: 'vec_pop_art',
-      name: '🌈 Pop Art Screenprint',
-      desc: 'Rich 16-color layered chromatic vectors inspired by Warhol screenprints',
-      icon: '✨',
-      params: { vectorColors: 16, vectorDetail: 80, vectorSmoothness: 55, vectorRemoveWhite: false }
+const DEFAULT_PRESETS = [
+  {
+    id: 'preset_adobe_stock',
+    name: 'Adobe Stock Vector',
+    category: 'vector',
+    description: 'High-contrast clean contours, no tiny speckles, closed paths ready for stock microstock submissions.',
+    params: {
+      vectorColors: 12,
+      vectorDetail: 80,
+      vectorSmoothness: 70,
+      vectorSimplification: 2,
+      vectorNoiseRemoval: 20,
+      vectorSmallObjectRemoval: 15,
+      vectorEdgeDetection: true,
+      vectorCornerSmoothness: 50,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'fill',
+      vectorPaletteMode: 'original',
+      vectorLayerMode: 'color'
     }
-  ],
+  },
+  {
+    id: 'preset_logo_vector',
+    name: 'Logo Vector',
+    category: 'vector',
+    description: 'Ultra-crisp geometric contours, sharp corner preservation, minimal anchor points.',
+    params: {
+      vectorColors: 6,
+      vectorDetail: 85,
+      vectorSmoothness: 80,
+      vectorSimplification: 3,
+      vectorNoiseRemoval: 25,
+      vectorSmallObjectRemoval: 20,
+      vectorEdgeDetection: true,
+      vectorCornerSmoothness: 30,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'fill',
+      vectorPaletteMode: 'original',
+      vectorLayerMode: 'color'
+    }
+  },
+  {
+    id: 'preset_bw_eps',
+    name: 'Black & White EPS',
+    category: 'vector',
+    description: 'High-contrast monochrome silhouette tracing optimized for laser engraving, vinyl cutting, and monochrome EPS.',
+    params: {
+      vectorColors: 2,
+      vectorDetail: 75,
+      vectorSmoothness: 65,
+      vectorSimplification: 2,
+      vectorThreshold: 135,
+      vectorNoiseRemoval: 15,
+      vectorSmallObjectRemoval: 12,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'fill',
+      vectorPaletteMode: 'bw',
+      vectorLayerMode: 'object'
+    }
+  },
+  {
+    id: 'preset_clean_svg',
+    name: 'Clean SVG',
+    category: 'vector',
+    description: 'Balanced path precision, 10 vibrant color layers, lightweight SVG output for web development.',
+    params: {
+      vectorColors: 10,
+      vectorDetail: 65,
+      vectorSmoothness: 60,
+      vectorSimplification: 2,
+      vectorNoiseRemoval: 10,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'fill',
+      vectorPaletteMode: 'original',
+      vectorLayerMode: 'color'
+    }
+  },
+  {
+    id: 'preset_sticker_vector',
+    name: 'Sticker Vector',
+    category: 'vector',
+    description: 'Distinctive thick stroke outline, simplified shapes, and bold colors for die-cut stickers.',
+    params: {
+      vectorColors: 8,
+      vectorDetail: 60,
+      vectorSmoothness: 75,
+      vectorSimplification: 3,
+      vectorNoiseRemoval: 15,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'fillAndStroke',
+      vectorStrokeWidth: 4,
+      vectorStrokeColor: '#ffffff',
+      vectorPaletteMode: 'original',
+      vectorLayerMode: 'color'
+    }
+  },
+  {
+    id: 'preset_line_art',
+    name: 'Line Art',
+    category: 'vector',
+    description: 'Monoline stroke outline contours without solid fills, perfect for coloring books and technical schematics.',
+    params: {
+      vectorColors: 2,
+      vectorDetail: 85,
+      vectorSmoothness: 55,
+      vectorSimplification: 1,
+      vectorNoiseRemoval: 10,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'stroke',
+      vectorStrokeWidth: 2,
+      vectorStrokeColor: '#111318',
+      vectorPaletteMode: 'bw',
+      vectorLayerMode: 'object'
+    }
+  },
+  {
+    id: 'preset_icon_pack',
+    name: 'Icon Pack Master',
+    category: 'icon',
+    description: 'Standardized 512px icon rendering across filled and outline styles with clean transparent backgrounds.',
+    params: {
+      iconStyle: 'flat',
+      iconSize: 512,
+      iconStrokeWidth: 3,
+      iconCornerRadius: 10,
+      iconSpacing: 20,
+      packStyle: 'flat',
+      packSize: 512
+    }
+  },
+  {
+    id: 'preset_print_300',
+    name: 'Print 300 PPI Master',
+    category: 'upscale',
+    description: '4500 x 3000 resolution synthesis at 300 DPI with unsharp masking and detail enhancement for fine art printing.',
+    params: {
+      upscaleResolution: '300PPI',
+      upscaleSharpness: 80,
+      upscaleDetail: 70,
+      upscaleNoiseReduction: 25,
+      upscaleTexturePreservation: 85
+    }
+  },
+  {
+    id: 'preset_social_media',
+    name: 'Social Media 4K',
+    category: 'upscale',
+    description: 'Crisp 3840 x 2160 output optimized for Instagram, Behance, Dribbble, and portfolio presentations.',
+    params: {
+      upscaleResolution: '4K',
+      upscaleSharpness: 75,
+      upscaleDetail: 60,
+      upscaleNoiseReduction: 20
+    }
+  },
+  {
+    id: 'preset_youtube',
+    name: 'YouTube Thumbnail High-Vis',
+    category: 'upscale',
+    description: 'Ultra-vibrant saturation, sharpened edges, and high-frequency punch for 1280x720 / 1920x1080 thumbnails.',
+    params: {
+      upscaleResolution: '2K',
+      upscaleSharpness: 90,
+      upscaleDetail: 80,
+      upscaleNoiseReduction: 15
+    }
+  },
+  {
+    id: 'preset_kdp',
+    name: 'Amazon KDP Print Ready',
+    category: 'vector',
+    description: 'Pure black vector outlines at 300 DPI for Amazon Kindle Direct Publishing paperback and hardcover interiors.',
+    params: {
+      vectorColors: 2,
+      vectorDetail: 90,
+      vectorSmoothness: 60,
+      vectorSimplification: 2,
+      vectorThreshold: 140,
+      vectorRemoveWhite: true,
+      vectorFillMode: 'fill',
+      vectorPaletteMode: 'bw',
+      vectorLayerMode: 'color'
+    }
+  }
+];
 
-  grain: [
-    {
-      id: 'grain_portra400',
-      name: '🎞️ Kodak Portra 400',
-      desc: 'Fine, warm natural skin-tone grain with subtle organic contrast',
-      icon: '📷',
-      params: { amount: 20, size: 1.1, contrast: 45 }
-    },
-    {
-      id: 'grain_ilford_hp5',
-      name: '🖤 Ilford HP5+ B&W',
-      desc: 'Dramatic high-acutance silver halide grain with bold punchy blacks',
-      icon: '🎞️',
-      params: { amount: 42, size: 1.5, contrast: 68 }
-    },
-    {
-      id: 'grain_cinestill',
-      name: '🌃 CineStill 800T',
-      desc: 'Tungsten cinema stock texture with atmospheric halation noise',
-      icon: '🎬',
-      params: { amount: 32, size: 1.3, contrast: 52 }
-    },
-    {
-      id: 'grain_super8',
-      name: '📼 Vintage Super 8mm',
-      desc: 'Heavy retro 70s home-movie grit with chunky analog imperfections',
-      icon: '📹',
-      params: { amount: 68, size: 2.2, contrast: 78 }
-    },
-    {
-      id: 'grain_velvia50',
-      name: '🌄 Fuji Velvia 50',
-      desc: 'Ultra-micro crystalline structure with vibrant tonal saturation',
-      icon: '🖼️',
-      params: { amount: 12, size: 0.9, contrast: 85 }
-    }
-  ],
+export class PresetsLibrary {
+  static getStorageKey() {
+    return 'cf_studio_custom_presets';
+  }
 
-  glass: [
-    {
-      id: 'glass_frosted_fluted',
-      name: '🧊 Frosted Fluted Glass',
-      desc: 'Gentle architectural reeded glass with soft light diffusion',
-      icon: '🏛️',
-      params: { preset: '1', intensity: 35, tint: '#ffffff' }
-    },
-    {
-      id: 'glass_diamond_prism',
-      name: '💎 Diamond Prism Refraction',
-      desc: 'Crystalline geometric facets with chromatic dispersion',
-      icon: '💠',
-      params: { preset: '2', intensity: 65, tint: '#99f6e4' }
-    },
-    {
-      id: 'glass_liquid_ripple',
-      name: '🌊 Liquid Water Ripple',
-      desc: 'Smooth organic fluid refractions resembling running water',
-      icon: '💧',
-      params: { preset: '3.1', intensity: 48, tint: '#38bdf8' }
-    },
-    {
-      id: 'glass_cyber_mesh',
-      name: '⚡ Cyber Abstract Wave',
-      desc: 'Deep multi-layer mathematical voronoi distortion',
-      icon: '🔮',
-      params: { preset: '3.2', intensity: 75, tint: '#818cf8' }
-    },
-    {
-      id: 'glass_shattered_crystal',
-      name: '💥 Shattered Crystal Prism',
-      desc: 'High-impact fractured glass geometry with chromatic aberration',
-      icon: '✨',
-      params: { preset: '3.3', intensity: 90, tint: '#f43f5e' }
+  static getAllPresets() {
+    try {
+      const stored = localStorage.getItem(this.getStorageKey());
+      const custom = stored ? JSON.parse(stored) : [];
+      return [...DEFAULT_PRESETS, ...custom];
+    } catch (e) {
+      return [...DEFAULT_PRESETS];
     }
-  ],
+  }
 
-  gradient: [
-    {
-      id: 'grad_aurora',
-      name: '🌌 Aurora Borealis',
-      desc: 'Deep cosmic blues fading into luminous emerald and cyan glows',
-      icon: '🌠',
-      type: 'mesh',
-      colors: ['#09203f', '#537895', '#00f2fe', '#4facfe']
-    },
-    {
-      id: 'grad_neon_sunset',
-      name: '🌅 Cyber Sunset',
-      desc: 'Electric crimson, solar orange, and deep indigo dusk gradient',
-      icon: '🌇',
-      type: 'linear',
-      colors: ['#f83600', '#f9d423', '#b92b27', '#1565c0']
-    },
-    {
-      id: 'grad_velvet_pastel',
-      name: '🌸 Velvet Dream',
-      desc: 'Soft lilac, baby blue, and blush pink silk aesthetic',
-      icon: '🪻',
-      type: 'soft',
-      colors: ['#e0c3fc', '#8ec5fc', '#fbc2eb', '#a6c1ee']
-    },
-    {
-      id: 'grad_matrix',
-      name: '🟢 Cyberpunk Matrix',
-      desc: 'Abyssal navy background radiating vivid neon emerald light',
-      icon: '💻',
-      type: 'radial',
-      colors: ['#000428', '#004e92', '#00f260', '#0575e6']
+  static getPresetsByCategory(category) {
+    return this.getAllPresets().filter(p => p.category === category);
+  }
+
+  static getById(id) {
+    return this.getAllPresets().find(p => p.id === id) || null;
+  }
+
+  static savePreset(name, category, params, description = '') {
+    const newPreset = {
+      id: `custom_preset_${Date.now()}`,
+      name: name.trim() || 'Custom Preset',
+      category: category || 'vector',
+      description: description.trim() || 'User defined preset configuration',
+      params: JSON.parse(JSON.stringify(params)),
+      isCustom: true,
+      created_at: new Date().toISOString()
+    };
+
+    const stored = localStorage.getItem(this.getStorageKey());
+    const custom = stored ? JSON.parse(stored) : [];
+    custom.push(newPreset);
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(custom));
+    return newPreset;
+  }
+
+  static updatePreset(id, updates) {
+    const stored = localStorage.getItem(this.getStorageKey());
+    if (!stored) return null;
+    let custom = JSON.parse(stored);
+    const idx = custom.findIndex(p => p.id === id);
+    if (idx === -1) return null;
+
+    custom[idx] = { ...custom[idx], ...updates, updated_at: new Date().toISOString() };
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(custom));
+    return custom[idx];
+  }
+
+  static duplicatePreset(id) {
+    const original = this.getById(id);
+    if (!original) return null;
+    return this.savePreset(`${original.name} (Copy)`, original.category, original.params, original.description);
+  }
+
+  static deletePreset(id) {
+    const stored = localStorage.getItem(this.getStorageKey());
+    if (!stored) return false;
+    let custom = JSON.parse(stored);
+    const initialLen = custom.length;
+    custom = custom.filter(p => p.id !== id);
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(custom));
+    return custom.length < initialLen;
+  }
+
+  static exportPresetsAsJson() {
+    const all = this.getAllPresets();
+    return JSON.stringify(all, null, 2);
+  }
+
+  static importPresetsFromJson(jsonStr) {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (!Array.isArray(parsed)) throw new Error('Invalid JSON format: Expected an array of presets');
+      const stored = localStorage.getItem(this.getStorageKey());
+      const custom = stored ? JSON.parse(stored) : [];
+      let importedCount = 0;
+
+      for (const item of parsed) {
+        if (item.name && item.params) {
+          custom.push({
+            id: `imported_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            name: item.name,
+            category: item.category || 'vector',
+            description: item.description || 'Imported preset',
+            params: item.params,
+            isCustom: true,
+            imported_at: new Date().toISOString()
+          });
+          importedCount++;
+        }
+      }
+
+      localStorage.setItem(this.getStorageKey(), JSON.stringify(custom));
+      return { success: true, count: importedCount };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
-  ]
-};
+  }
+
+  // Backward-compatibility getters
+  static get vector() {
+    return this.getPresetsByCategory('vector');
+  }
+}

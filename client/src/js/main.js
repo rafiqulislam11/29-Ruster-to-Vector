@@ -1,5 +1,6 @@
 /**
  * CreativeForge AI — Main Application Controller
+ * Professional Creative Vector Studio
  */
 import '../css/variables.css';
 import '../css/base.css';
@@ -11,11 +12,17 @@ import '../css/dashboard.css';
 
 import { store } from './state.js';
 import { api } from './api.js';
+import { i18n } from './utils/i18n.js';
 import { createSampleArtwork } from './sample-asset.js';
 import { StudioView } from './views/studio-view.js';
 import { LandingView } from './views/landing-view.js';
 import { DashboardView } from './views/dashboard-view.js';
 import { AdminView } from './views/admin-view.js';
+import { SettingsView } from './views/settings-view.js';
+import { PresetManagerView } from './views/preset-manager.js';
+import { ProjectManagerView } from './views/project-manager.js';
+import { MetadataStudioView } from './views/metadata-studio.js';
+import { ExportCenterView } from './views/export-center.js';
 
 class App {
   constructor() {
@@ -24,11 +31,19 @@ class App {
     this.landingView = null;
     this.dashboardView = null;
     this.adminView = null;
+    this.settingsView = null;
+    this.presetManagerView = null;
+    this.projectManagerView = null;
+    this.metadataStudioView = null;
+    this.exportCenterView = null;
     this.lastRenderedView = null;
   }
 
   async init() {
-    // 1. Initialize Default Sample Artwork so the studio is immediately alive and wowing
+    // 0. Initialize Localization (EN/BN/AR)
+    i18n.init();
+
+    // 1. Initialize Default Sample Artwork so the studio is immediately alive and functional
     const { canvas, img } = createSampleArtwork();
     store.setState({
       originalImage: img,
@@ -49,16 +64,22 @@ class App {
     }
 
     // 3. Initialize Views
+    const returnToStudio = () => store.setState({ currentView: 'studio' });
+
     this.studioView = new StudioView(this.appRoot);
-    this.landingView = new LandingView(this.appRoot, () => {
-      store.setState({ currentView: 'studio' });
+    this.landingView = new LandingView(this.appRoot, returnToStudio);
+    this.dashboardView = new DashboardView(this.appRoot, returnToStudio);
+    this.adminView = new AdminView(this.appRoot, returnToStudio);
+    this.settingsView = new SettingsView(this.appRoot);
+    this.presetManagerView = new PresetManagerView(this.appRoot, () => {
+      // Applied preset callback
+      returnToStudio();
     });
-    this.dashboardView = new DashboardView(this.appRoot, () => {
-      store.setState({ currentView: 'studio' });
+    this.projectManagerView = new ProjectManagerView(this.appRoot, () => {
+      returnToStudio();
     });
-    this.adminView = new AdminView(this.appRoot, () => {
-      store.setState({ currentView: 'studio' });
-    });
+    this.metadataStudioView = new MetadataStudioView(this.appRoot);
+    this.exportCenterView = new ExportCenterView(this.appRoot);
 
     // 4. Listen to State View Changes
     store.subscribe((state) => {
@@ -71,6 +92,8 @@ class App {
     const path = window.location.pathname.replace(/^\//, '');
     if (['image-upscaler', 'image-to-vector', 'background-remover', 'gradient-maker', 'icon-pack-maker', 'fractal-glass'].includes(path)) {
       store.setState({ currentView: 'landing', activeSeoTool: path });
+    } else if (['dashboard', 'admin', 'settings', 'preset-manager', 'project-manager', 'metadata-studio', 'export-center'].includes(path)) {
+      store.setState({ currentView: path });
     } else {
       // Default to Studio so user immediately lands on the creative workspace
       store.setState({ currentView: 'studio' });
@@ -84,14 +107,39 @@ class App {
     this.lastRenderedView = viewName;
     window.scrollTo(0, 0);
 
-    if (viewName === 'landing') {
-      this.landingView.render(store.getState().activeSeoTool);
-    } else if (viewName === 'dashboard') {
-      this.dashboardView.loadData();
-    } else if (viewName === 'admin') {
-      this.adminView.loadData();
-    } else {
-      this.studioView.render();
+    switch (viewName) {
+      case 'landing':
+        this.landingView.render(store.getState().activeSeoTool);
+        break;
+      case 'dashboard':
+        this.dashboardView.loadData();
+        break;
+      case 'admin':
+        this.adminView.loadData();
+        break;
+      case 'settings':
+        this.settingsView.render();
+        break;
+      case 'preset-manager':
+      case 'presets':
+        this.presetManagerView.render();
+        break;
+      case 'project-manager':
+      case 'projects':
+        this.projectManagerView.loadData();
+        break;
+      case 'metadata-studio':
+      case 'metadata':
+        this.metadataStudioView.render();
+        break;
+      case 'export-center':
+      case 'export':
+        this.exportCenterView.render();
+        break;
+      case 'studio':
+      default:
+        this.studioView.render();
+        break;
     }
   }
 

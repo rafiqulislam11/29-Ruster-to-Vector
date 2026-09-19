@@ -1,6 +1,7 @@
 /**
- * CreativeForge AI — High-Performance Batch Processing & Bulk Export Engine
+ * Creative Vector Studio — High-Performance Batch Processing & Bulk Export Engine
  * Handles up to 500+ images in parallel with non-blocking concurrency,
+ * duplicate detection, pause/resume/cancel controllers, ETA calculation,
  * authentic 300 PPI print metadata injection, and streaming ZIP generation.
  */
 import JSZip from 'jszip';
@@ -17,7 +18,7 @@ import { PrintExporter } from '../utils/print-exporter.js';
 
 export class BatchProcessorEngine {
   /**
-   * Process a single file or image element with the specified tool
+   * Process a single file or image element with the specified tool and parameters
    */
   static async processSingleAsset(fileOrImg, tool, params) {
     let img;
@@ -44,10 +45,17 @@ export class BatchProcessorEngine {
     // Route to appropriate creative engine
     if (tool === 'tool_vector_convert' || tool === 'tool_vector_trace') {
       const vecRes = await VectorTracer.trace(img, {
-        colors: params.vectorColors || 8,
-        detail: params.vectorDetail || 60,
+        colors: params.vectorColors || 10,
+        detail: params.vectorDetail || 70,
         smoothness: params.vectorSmoothness || 60,
-        removeWhiteBg: params.vectorRemoveWhite !== false
+        simplification: params.vectorSimplification || 2,
+        noiseRemoval: params.vectorNoiseRemoval || 12,
+        smallObjectRemoval: params.vectorSmallObjectRemoval || 8,
+        cornerSmoothness: params.vectorCornerSmoothness || 45,
+        removeWhiteBg: params.vectorRemoveWhite !== false,
+        fillMode: params.vectorFillMode || 'fill',
+        paletteMode: params.vectorPaletteMode || 'original',
+        layerMode: params.vectorLayerMode || 'color'
       });
       outSvg = vecRes.svgString;
 
@@ -67,12 +75,15 @@ export class BatchProcessorEngine {
       outCanvas = ImageUpscalerEngine.process(img, params.upscaleResolution || '300PPI', {
         sharpness: params.upscaleSharpness || 75,
         detailEnhancement: params.upscaleDetail || 60,
-        noiseReduction: params.upscaleNoiseReduction || 30
+        noiseReduction: params.upscaleNoiseReduction || 30,
+        edgeEnhancement: params.upscaleEdgeEnhancement || 50
       });
 
     } else if (tool.includes('remove') || tool.includes('transparent')) {
       outCanvas = BackgroundRemovalEngine.process(img, {
-        tolerance: params.bgTolerance || 25,
+        mode: params.bgMode || 'white',
+        customColor: params.bgCustomColor || '#ffffff',
+        tolerance: params.bgTolerance || 28,
         feather: params.bgFeather || 2,
         shadowPreservation: params.bgShadowPreserve !== false
       });
@@ -106,7 +117,7 @@ export class BatchProcessorEngine {
       const isMaker = tool.startsWith('tool_gradient_maker');
       const sys = isMaker ? parseInt(tool.replace('tool_gradient_maker_', ''), 10) : 1;
       outCanvas = GradientEngine.renderGradientCanvas({
-        colors: params.gradientColors || ['#6366f1', '#06b6d4', '#ec4899'],
+        colors: params.gradientColors || ['#6366f1', '#06b6d4', '#ec4899', '#8b5cf6'],
         type: params.gradientType || 'linear',
         angle: params.gradientAngle || 135,
         blur: params.gradientBlur || 0,
@@ -128,7 +139,6 @@ export class BatchProcessorEngine {
       });
 
     } else {
-      // Fallback
       outCanvas = document.createElement('canvas');
       outCanvas.width = img.naturalWidth || 800;
       outCanvas.height = img.naturalHeight || 600;
@@ -148,20 +158,35 @@ export class BatchProcessorEngine {
   }
 
   /**
+   * Filter out duplicate files by name and size
+   */
+  static detectDuplicates(files) {
+    const seen = new Set();
+    const unique = [];
+    const duplicates = [];
+
+    files.forEach(f => {
+      const key = `${f.name}_${f.size}`;
+      if (seen.has(key)) {
+        duplicates.push(f);
+      } else {
+        seen.add(key);
+        unique.push(f);
+      }
+    });
+
+    return { unique, duplicates };
+  }
+
+  /**
    * Run full batch processing across all items with real-time progress & ZIP packaging
-   * @param {Object} options
-   * @param {Array<File|Blob>} options.files Array of 1 to 500+ files
-   * @param {string} options.tool Selected creative studio tool
-   * @param {Object} options.params Tool parameters
-   * @param {number} options.concurrency Number of parallel workers (default 4)
-   * @param {Function} options.onProgress Progress callback
-   * @returns {Promise<{ zipBlob: Blob, total: number, processed: number, failed: number }>}
    */
   static async runBatch({
     files,
     tool,
     params = {},
     concurrency = 4,
+    controller = { isPaused: false, isCancelled: false },
     onProgress = () => {}
   }) {
     const total = files.length;
@@ -175,7 +200,7 @@ export class BatchProcessorEngine {
     const svgFolder = isVector ? zip.folder('svg_vectors') : null;
 
     const manifest = {
-      generator: 'CreativeForge AI — Batch Studio Engine',
+      generator: 'Creative Vector Studio — Batch Studio Engine',
       timestamp: new Date().toISOString(),
       toolApplied: tool,
       resolutionDpi: 300,
@@ -189,20 +214,32 @@ export class BatchProcessorEngine {
       percent: 0,
       currentFileName: 'Starting batch pipeline...',
       status: `Initializing 300 PPI batch engine for ${total} images...`,
-      speed: 0
+      speed: 0,
+      etaSeconds: 0
     });
 
-    // Process in non-blocking worker pools
     let cursor = 0;
 
     const worker = async () => {
       while (cursor < total) {
+        if (controller.isCancelled) break;
+
+        // Pause check loop
+        while (controller.isPaused && !controller.isCancelled) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+
         const index = cursor++;
+        if (index >= total) break;
+
         const file = files[index];
         const fileName = file.name || `image_${String(index + 1).padStart(3, '0')}.png`;
 
+        // Check if file has custom params attached
+        const activeParams = file.__customParams ? { ...params, ...file.__customParams } : params;
+
         try {
-          const res = await this.processSingleAsset(file, tool, params);
+          const res = await this.processSingleAsset(file, tool, activeParams);
           const buf = await res.pngBlob.arrayBuffer();
           const cleanName = `${res.baseName}_${tool.replace('tool_', '')}_300ppi.png`;
 
@@ -231,9 +268,10 @@ export class BatchProcessorEngine {
           failed++;
         }
 
-        // Calculate progress & metrics
         const elapsedSec = (Date.now() - startTime) / 1000;
         const speed = elapsedSec > 0 ? (processed / elapsedSec).toFixed(1) : 0;
+        const remainingItems = total - (processed + failed);
+        const etaSeconds = parseFloat(speed) > 0 ? Math.round(remainingItems / parseFloat(speed)) : 0;
         const percent = Math.min(92, Math.round(((processed + failed) / total) * 92));
 
         onProgress({
@@ -242,15 +280,14 @@ export class BatchProcessorEngine {
           percent,
           currentFileName: fileName,
           status: `Processed ${processed} of ${total} images (${speed} img/sec @ 300 PPI)`,
-          speed: parseFloat(speed)
+          speed: parseFloat(speed),
+          etaSeconds
         });
 
-        // Yield execution to allow DOM repainting and keep UI responsive at 60fps
         await new Promise(r => setTimeout(r, 0));
       }
     };
 
-    // Run parallel workers
     const activeWorkers = [];
     const poolSize = Math.min(concurrency, total);
     for (let w = 0; w < poolSize; w++) {
@@ -259,20 +296,22 @@ export class BatchProcessorEngine {
 
     await Promise.all(activeWorkers);
 
+    if (controller.isCancelled) {
+      throw new Error('Batch processing was cancelled by user.');
+    }
+
     // Attach batch manifest
     zip.file('batch-manifest.json', JSON.stringify(manifest, null, 2));
 
-    // README info
     zip.file('README.txt', [
       '====================================================',
-      'CreativeForge AI — High-Resolution 300 PPI Batch Export',
+      'Creative Vector Studio — High-Resolution 300 PPI Batch Export',
       '====================================================',
       `Tool Applied: ${tool.replace('tool_', '').toUpperCase()}`,
       `Total Assets Processed: ${processed}`,
       `Print Density: 300 PPI (pHYs standard print calibration embedded)`,
       `Generated: ${new Date().toISOString()}`,
-      '====================================================',
-      'https://creativeforge.ai'
+      '===================================================='
     ].join('\n'));
 
     // Zip compression phase
@@ -282,7 +321,8 @@ export class BatchProcessorEngine {
       percent: 95,
       currentFileName: 'Packaging ZIP...',
       status: `Packaging all ${processed} assets into 300 PPI master ZIP...`,
-      speed: 0
+      speed: 0,
+      etaSeconds: 2
     });
 
     const zipBlob = await zip.generateAsync({
@@ -297,7 +337,8 @@ export class BatchProcessorEngine {
         percent: Math.min(100, zipPct),
         currentFileName: 'Compressing archive...',
         status: `Compressing ZIP archive (${meta.percent.toFixed(0)}%)...`,
-        speed: 0
+        speed: 0,
+        etaSeconds: 1
       });
     });
 
@@ -307,7 +348,8 @@ export class BatchProcessorEngine {
       percent: 100,
       currentFileName: 'Complete!',
       status: `Successfully completed ${processed} images @ 300 PPI!`,
-      speed: 0
+      speed: 0,
+      etaSeconds: 0
     });
 
     return {

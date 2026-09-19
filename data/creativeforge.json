@@ -7,9 +7,9 @@
       "password_hash": "admin123",
       "plan_id": "BUSINESS",
       "role": "admin",
-      "credits": 99981,
+      "credits": 99974,
       "created_at": "2026-01-01T00:00:00.000Z",
-      "updated_at": "2026-09-18T18:00:41.868Z"
+      "updated_at": "2026-09-19T03:55:15.086Z"
     },
     {
       "id": "usr_pro",
@@ -5016,6 +5016,93 @@
         },
         "processed_at": "2026-09-18T18:00:41.865Z"
       }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_vector_convert",
+      "parameters": {
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T03:55:14.247Z",
+      "completed_at": "2026-09-19T03:55:15.059Z",
+      "id": "proc_1789790114245_wxps9",
+      "created_at": "2026-09-19T03:55:14.245Z",
+      "updated_at": "2026-09-19T03:55:15.059Z",
+      "metadata": {
+        "provider": "CreativeForge Vectorizer Engine (Potrace / Bezier Tracing)",
+        "colors": 8,
+        "detail": 60,
+        "smoothness": 50,
+        "threshold": 128,
+        "timestamp": "2026-09-19T03:55:15.058Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_upscaler",
+      "parameters": {
+        "resolution": "4K",
+        "sharpness": 80
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T03:55:14.261Z",
+      "completed_at": "2026-09-19T03:55:15.069Z",
+      "id": "proc_1789790114251_0qz4r",
+      "created_at": "2026-09-19T03:55:14.252Z",
+      "updated_at": "2026-09-19T03:55:15.069Z",
+      "metadata": {
+        "provider": "CreativeForge Local Engine (High-Precision Bicubic / Lanczos)",
+        "mode": "mock_local",
+        "resolution": "4K",
+        "scaleFactor": 2,
+        "sharpness": 80,
+        "noiseReduction": 30,
+        "processed": true,
+        "timestamp": "2026-09-19T03:55:15.069Z"
+      }
+    },
+    {
+      "user_id": "usr_admin",
+      "project_id": null,
+      "asset_id": null,
+      "tool": "tool_fractal_glass_2",
+      "parameters": {
+        "preset": "2",
+        "refraction": 60
+      },
+      "input_url": "",
+      "status": "completed",
+      "progress": 100,
+      "output_url": "",
+      "error": null,
+      "started_at": "2026-09-19T03:55:14.268Z",
+      "completed_at": "2026-09-19T03:55:15.079Z",
+      "id": "proc_1789790114265_gsc2o",
+      "created_at": "2026-09-19T03:55:14.265Z",
+      "updated_at": "2026-09-19T03:55:15.079Z",
+      "metadata": {
+        "tool": "tool_fractal_glass_2",
+        "parameters": {
+          "preset": "2",
+          "refraction": 60
+        },
+        "processed_at": "2026-09-19T03:55:15.079Z"
+      }
     }
   ],
   "exports": [
@@ -5220,6 +5307,27 @@
       "credits_used": 1,
       "id": "usag_1789754441866_4wuqv",
       "created_at": "2026-09-18T18:00:41.866Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_vector_convert",
+      "credits_used": 2,
+      "id": "usag_1789790115062_3w5bx",
+      "created_at": "2026-09-19T03:55:15.062Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_upscaler",
+      "credits_used": 3,
+      "id": "usag_1789790115072_qfn5e",
+      "created_at": "2026-09-19T03:55:15.072Z"
+    },
+    {
+      "user_id": "usr_admin",
+      "tool": "tool_fractal_glass_2",
+      "credits_used": 2,
+      "id": "usag_1789790115083_lyuaf",
+      "created_at": "2026-09-19T03:55:15.083Z"
     }
   ],
   "tool_configs": [
@@ -5489,6 +5597,93 @@
       "status": "success",
       "id": "back_1789754442272_9y69e",
       "created_at": "2026-09-18T18:00:42.272Z"
+    },
+    {
+      "filename": "backup_admin_manual_2026-09-19T03-55-15-506Z.json",
+      "filepath": "C:\\Users\\Rafiqul Islam\\Desktop\\10- APPS GENERATE\\29-Ruster-to-Vector-main\\29-Ruster-to-Vector-main\\storage\\backups\\backup_admin_manual_2026-09-19T03-55-15-506Z.json",
+      "size_bytes": 216374,
+      "size_kb": 211.3,
+      "trigger": "admin_manual",
+      "status": "success",
+      "id": "back_1789790115509_bj9aa",
+      "created_at": "2026-09-19T03:55:15.509Z"
+    }
+  ],
+  "presets": [
+    {
+      "id": "preset_adobe_stock",
+      "name": "Adobe Stock Vector",
+      "category": "vector",
+      "description": "Clean closed contours, no tiny speckles, closed paths ready for stock submissions.",
+      "params": {
+        "vectorColors": 12,
+        "vectorDetail": 80,
+        "vectorSmoothness": 70,
+        "vectorSimplification": 2,
+        "vectorNoiseRemoval": 20,
+        "vectorSmallObjectRemoval": 15,
+        "vectorRemoveWhite": true,
+        "vectorFillMode": "fill",
+        "vectorLayerMode": "color"
+      },
+      "created_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "preset_logo_vector",
+      "name": "Logo Vector",
+      "category": "vector",
+      "description": "Ultra-crisp geometric contours, sharp corner preservation, minimal anchor points.",
+      "params": {
+        "vectorColors": 6,
+        "vectorDetail": 85,
+        "vectorSmoothness": 80,
+        "vectorSimplification": 3,
+        "vectorNoiseRemoval": 25,
+        "vectorCornerSmoothness": 30,
+        "vectorFillMode": "fill",
+        "vectorLayerMode": "color"
+      },
+      "created_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "preset_print_300",
+      "name": "Print 300 PPI Master",
+      "category": "upscale",
+      "description": "High-density unsharp masking and detail enhancement for fine art printing.",
+      "params": {
+        "upscaleResolution": "300PPI",
+        "upscaleSharpness": 80,
+        "upscaleDetail": 70,
+        "upscaleNoiseReduction": 25
+      },
+      "created_at": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "metadata": [],
+  "credit_transactions": [
+    {
+      "id": "tx_init_1",
+      "user_id": "usr_pro",
+      "amount": 500,
+      "type": "monthly_grant",
+      "description": "Professional Plan Monthly Credits",
+      "timestamp": "2026-09-19T03:39:48.677Z"
+    }
+  ],
+  "settings": {
+    "maintenance_mode": false,
+    "default_ppi": 300,
+    "default_export_format": "svg",
+    "max_batch_size": 500,
+    "api_rate_limit": 100
+  },
+  "history": [],
+  "audit_logs": [
+    {
+      "id": "log_init",
+      "action": "SYSTEM_STARTUP",
+      "details": "Creative Vector Studio Database Initialized",
+      "timestamp": "2026-09-19T03:39:48.677Z"
     }
   ]
 }

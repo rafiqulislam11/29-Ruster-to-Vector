@@ -12,7 +12,7 @@ function handleProcessRequest(toolName, req, res) {
 
   // Credit validation
   const user = req.user;
-  const toolConfig = db.findOne('tool_configs', t => t.name.toLowerCase().includes(toolName.toLowerCase())) || { credit_cost: 1, enabled: true };
+  const toolConfig = db.findOne('tool_configs', t => t.id === toolName || t.id.includes(toolName) || (t.name && t.name.toLowerCase().includes(toolName.toLowerCase()))) || { credit_cost: 1, enabled: true };
 
   if (!toolConfig.enabled) {
     return res.status(403).json({ error: `The tool '${toolName}' is currently disabled by administrator.` });

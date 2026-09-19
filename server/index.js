@@ -34,6 +34,20 @@ app.use('/storage', express.static(path.resolve(process.cwd(), config.storage.lo
 const clientDist = path.resolve(process.cwd(), 'client/dist');
 app.use(express.static(clientDist));
 
+const apiStudiosRoutes = require('./routes/api-studios');
+
+// Maintenance mode check middleware
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health' || req.path === '/auth/login' || req.path.startsWith('/admin')) {
+    return next();
+  }
+  const isMaintenance = db.data?.settings?.maintenance_mode;
+  if (isMaintenance && req.user?.role !== 'admin') {
+    return res.status(503).json({ error: 'System is currently in maintenance mode. Please try again shortly.' });
+  }
+  next();
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
@@ -43,6 +57,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/v1', apiV1Routes);
+app.use('/api', apiStudiosRoutes);
 
 // General Public Health & Meta Endpoint
 app.get('/api/health', (req, res) => {

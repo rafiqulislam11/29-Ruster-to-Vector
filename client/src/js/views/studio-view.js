@@ -1,5 +1,5 @@
 /**
- * CreativeForge AI — Unified Creative Studio Workspace View
+ * CreativeForge AI — Professional Creative Vector Studio Workspace
  */
 import { store } from '../state.js';
 import { api } from '../api.js';
@@ -17,6 +17,10 @@ import { PpiWriter } from '../utils/ppi-writer.js';
 import { PrintExporter } from '../utils/print-exporter.js';
 import { PresetsLibrary } from '../engines/presets-library.js';
 import { HotkeysManager } from '../utils/hotkeys.js';
+import { CanvasEditor } from '../canvas/canvas-editor.js';
+import { LayersPanel } from '../components/layers-panel.js';
+import { StockReadyWorkflow } from './stock-ready-workflow.js';
+import { i18n } from '../utils/i18n.js';
 
 export class StudioView {
   constructor(container) {
@@ -30,6 +34,9 @@ export class StudioView {
     this.toolCache = new Map();
     this.rafPending = false;
     this.currentBatchIndex = 0;
+    this.canvasEditor = null;
+    this.layersPanel = null;
+    this.viewMode = 'compare'; // 'compare' | 'canvas'
   }
 
   render() {
@@ -45,14 +52,14 @@ export class StudioView {
           <div class="studio-nav-brand">
             <div class="brand-logo">CF</div>
             <div class="brand-title">
-              <span>CreativeForge AI</span>
-              <span class="brand-subtitle">AI Creative Studio</span>
+              <span>Creative Vector Studio</span>
+              <span class="brand-subtitle">AI Vector & Print Engine</span>
             </div>
             <input type="text" id="project-name-input" class="studio-project-title-input" value="${project.name}" title="Click to rename project" />
           </div>
 
           <div class="studio-nav-center">
-            <button class="btn btn-glass btn-sm" id="btn-top-upload" title="Universal Upload">
+            <button class="btn btn-glass btn-sm" id="btn-top-upload" title="Universal Upload (Single or Batch up to 500+)">
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
               Upload
             </button>
@@ -61,10 +68,19 @@ export class StudioView {
             <div style="width:1px; height:16px; background:var(--border-medium); margin:0 2px;"></div>
             <button class="btn btn-icon btn-sm" id="btn-reset" title="Reset Changes"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
             <div style="width:1px; height:16px; background:var(--border-medium); margin:0 2px;"></div>
-            <!-- Compare Mode Toggle -->
-            <button class="btn btn-sm ${state.compareMode === 'slider' ? 'btn-primary' : 'btn-glass'}" id="btn-mode-slider" title="Interactive Slider Compare">Slider</button>
-            <button class="btn btn-sm ${state.compareMode === 'split' ? 'btn-primary' : 'btn-glass'}" id="btn-mode-split" title="Split Screen">Split</button>
-            <button class="btn btn-sm ${state.compareMode === 'side-by-side' ? 'btn-primary' : 'btn-glass'}" id="btn-mode-side" title="Side by Side">Side-by-Side</button>
+
+            <!-- Workspace Mode: Compare vs Interactive Canvas Editor -->
+            <div style="display:flex; gap:2px; background:rgba(0,0,0,0.35); padding:2px; border-radius:6px; border:1px solid var(--border-medium);">
+              <button class="btn btn-sm ${this.viewMode === 'compare' ? 'btn-primary' : 'btn-glass'}" id="btn-toggle-compare" title="Before/After Compare Engine">Compare</button>
+              <button class="btn btn-sm ${this.viewMode === 'canvas' ? 'btn-primary' : 'btn-glass'}" id="btn-toggle-canvas" title="Interactive Vector Canvas & Layers Studio">✏️ Canvas & Layers</button>
+            </div>
+
+            <!-- Compare Sub-Modes -->
+            <div id="compare-submodes" style="display:${this.viewMode === 'compare' ? 'flex' : 'none'}; gap:3px; margin-left:4px;">
+              <button class="btn btn-sm ${state.compareMode === 'slider' ? 'btn-primary' : 'btn-glass'}" id="btn-mode-slider" title="Interactive Slider Compare">Slider</button>
+              <button class="btn btn-sm ${state.compareMode === 'split' ? 'btn-primary' : 'btn-glass'}" id="btn-mode-split" title="Split Screen">Split</button>
+              <button class="btn btn-sm ${state.compareMode === 'side-by-side' ? 'btn-primary' : 'btn-glass'}" id="btn-mode-side" title="Side by Side">Side</button>
+            </div>
           </div>
 
           <div class="studio-nav-right">
@@ -72,16 +88,29 @@ export class StudioView {
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
               <span>${user.credits} Credits</span>
             </div>
-            <button class="btn btn-secondary btn-sm" id="btn-save-project">Save Project</button>
+
+            <button class="btn btn-glass btn-sm" id="btn-top-stock-ready" style="border-color:var(--accent-primary); color:var(--accent-secondary); font-weight:700;" title="1-Click Stock Ready Commercial Pipeline & ZIP">
+              ⚡ Stock Ready
+            </button>
+
+            <button class="btn btn-secondary btn-sm" id="btn-save-project">Save</button>
+
             ${batchAssets.length > 1 ? `
               <button class="btn btn-glass btn-sm" id="btn-top-batch-export" style="border-color:var(--accent-secondary); color:var(--accent-secondary); font-weight:700;" title="Batch Export all ${batchAssets.length} assets in 300 PPI ZIP">
                 ⚡ Batch (${batchAssets.length})
               </button>
             ` : ''}
+
             <button class="btn btn-primary btn-sm" id="btn-top-export">
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               Export
             </button>
+
+            <!-- Quick Navigation Icons -->
+            <div style="width:1px; height:16px; background:var(--border-medium); margin:0 2px;"></div>
+            <button class="btn btn-icon btn-sm" id="btn-nav-metadata" title="Commercial Microstock Tagging & Metadata Studio">🏷️</button>
+            <button class="btn btn-icon btn-sm" id="btn-nav-presets" title="Preset Manager & Library">⭐</button>
+            <button class="btn btn-icon btn-sm" id="btn-nav-settings" title="Studio Settings (Theme, Language, Accents, PPI)">⚙️</button>
             <button class="btn btn-icon btn-sm" id="btn-switch-account" title="Switch Demo Account (Free/Pro/Admin)">
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             </button>
@@ -93,48 +122,65 @@ export class StudioView {
 
         <!-- STUDIO WORKSPACE BODY -->
         <div class="studio-body">
-          <!-- LEFT SIDEBAR: TOOL DIRECTORY -->
+          <!-- LEFT SIDEBAR: COMPLETE 17-STUDIO DIRECTORY -->
           <aside class="studio-sidebar-left" id="studio-sidebar-left">
+            <!-- 1. VECTOR STUDIO -->
             <div class="tool-category-group">
               <div class="tool-category-header">
-                <span>IMAGE STUDIO</span>
-                <span class="badge badge-indigo">9 Tools</span>
+                <span>VECTOR STUDIO</span>
+                <span class="badge badge-cyan">2 Tools</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_gradient_extract' ? 'active' : ''}" data-tool="tool_gradient_extract">
-                <span class="tool-item-icon">◈</span>
-                <span>Image → Gradient</span>
+              <div class="tool-nav-item ${state.activeTool === 'tool_vector_convert' ? 'active' : ''}" data-tool="tool_vector_convert">
+                <span class="tool-item-icon">⬡</span>
+                <span>Image → Vector (SVG)</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_vector_trace' ? 'active' : ''}" data-tool="tool_vector_trace">
+                <span class="tool-item-icon">⟡</span>
+                <span>Vector Trace & Curves</span>
+              </div>
+            </div>
+
+            <!-- 2. BACKGROUND STUDIO -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
+              <div class="tool-category-header">
+                <span>BACKGROUND STUDIO</span>
+                <span class="badge badge-green">3 Tools</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_bg_remove_white' ? 'active' : ''}" data-tool="tool_bg_remove_white">
+                <span class="tool-item-icon">✂</span>
+                <span>Remove White BG</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_bg_transparent' ? 'active' : ''}" data-tool="tool_bg_transparent">
+                <span class="tool-item-icon">▨</span>
+                <span>Transparent Cutout</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_bg_custom' ? 'active' : ''}" data-tool="tool_bg_custom">
+                <span class="tool-item-icon">🎨</span>
+                <span>Custom Color / Shadow</span>
+              </div>
+            </div>
+
+            <!-- 3. UPSCALE STUDIO -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
+              <div class="tool-category-header">
+                <span>UPSCALE STUDIO</span>
+                <span class="badge badge-indigo">1 Tool</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_upscaler' ? 'active' : ''}" data-tool="tool_upscaler">
                 <span class="tool-item-icon">⚡</span>
                 <span>AI Image Upscaler</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_film_grain' ? 'active' : ''}" data-tool="tool_film_grain">
-                <span class="tool-item-icon">🎞</span>
-                <span>Film Grain Engine</span>
+            </div>
+
+            <!-- 4. GRADIENT STUDIO -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
+              <div class="tool-category-header">
+                <span>GRADIENT STUDIO</span>
+                <span class="badge badge-indigo">5 Tools</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_1' ? 'active' : ''}" data-tool="tool_fractal_glass_1">
-                <span class="tool-item-icon">❄</span>
-                <span>Fractal Glass 1</span>
-              </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_2' ? 'active' : ''}" data-tool="tool_fractal_glass_2">
-                <span class="tool-item-icon">❄</span>
-                <span>Fractal Glass 2</span>
-              </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3' ? 'active' : ''}" data-tool="tool_fractal_glass_3">
-                <span class="tool-item-icon">❄</span>
-                <span>Fractal Glass 3</span>
-              </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3_1' ? 'active' : ''}" data-tool="tool_fractal_glass_3_1">
-                <span class="tool-item-icon">❄</span>
-                <span>Fractal Glass 3.1</span>
-              </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3_2' ? 'active' : ''}" data-tool="tool_fractal_glass_3_2">
-                <span class="tool-item-icon">❄</span>
-                <span>Fractal Glass 3.2</span>
-              </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3_3' ? 'active' : ''}" data-tool="tool_fractal_glass_3_3">
-                <span class="tool-item-icon">❄</span>
-                <span>Fractal Glass 3.3</span>
+              <div class="tool-nav-item ${state.activeTool === 'tool_gradient_extract' ? 'active' : ''}" data-tool="tool_gradient_extract">
+                <span class="tool-item-icon">◈</span>
+                <span>Image → Gradient</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_gradient_maker_1' ? 'active' : ''}" data-tool="tool_gradient_maker_1">
                 <span class="tool-item-icon">✦</span>
@@ -154,42 +200,119 @@ export class StudioView {
               </div>
             </div>
 
-            <div class="tool-category-group" style="border-top: 1px solid var(--border-subtle); margin-top: 6px;">
+            <!-- 5. GLASS STUDIO -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
               <div class="tool-category-header">
-                <span>VECTOR & ICON STUDIO</span>
-                <span class="badge badge-cyan">8 Tools</span>
+                <span>GLASS STUDIO</span>
+                <span class="badge badge-cyan">6 Shaders</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_vector_convert' ? 'active' : ''}" data-tool="tool_vector_convert">
-                <span class="tool-item-icon">⬡</span>
-                <span>Image → Vector (SVG)</span>
+              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_1' ? 'active' : ''}" data-tool="tool_fractal_glass_1">
+                <span class="tool-item-icon">❄</span>
+                <span>Prism Refraction 1</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_vector_trace' ? 'active' : ''}" data-tool="tool_vector_trace">
-                <span class="tool-item-icon">⟡</span>
-                <span>Vector Trace</span>
+              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_2' ? 'active' : ''}" data-tool="tool_fractal_glass_2">
+                <span class="tool-item-icon">❄</span>
+                <span>Diamond Dispersion 2</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_bg_remove_white' ? 'active' : ''}" data-tool="tool_bg_remove_white">
-                <span class="tool-item-icon">✂</span>
-                <span>Remove White Background</span>
+              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3' ? 'active' : ''}" data-tool="tool_fractal_glass_3">
+                <span class="tool-item-icon">❄</span>
+                <span>Frosted Caustic 3</span>
               </div>
-              <div class="tool-nav-item ${state.activeTool === 'tool_bg_transparent' ? 'active' : ''}" data-tool="tool_bg_transparent">
-                <span class="tool-item-icon">▨</span>
-                <span>Transparent Background</span>
+              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3_1' ? 'active' : ''}" data-tool="tool_fractal_glass_3_1">
+                <span class="tool-item-icon">❄</span>
+                <span>Crystal Geometric 3.1</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3_2' ? 'active' : ''}" data-tool="tool_fractal_glass_3_2">
+                <span class="tool-item-icon">❄</span>
+                <span>Fluted Architectural 3.2</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_fractal_glass_3_3' ? 'active' : ''}" data-tool="tool_fractal_glass_3_3">
+                <span class="tool-item-icon">❄</span>
+                <span>Holographic Prism 3.3</span>
+              </div>
+            </div>
+
+            <!-- 6. FILM GRAIN STUDIO -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
+              <div class="tool-category-header">
+                <span>FILM GRAIN STUDIO</span>
+                <span class="badge badge-indigo">1 Engine</span>
+              </div>
+              <div class="tool-nav-item ${state.activeTool === 'tool_film_grain' ? 'active' : ''}" data-tool="tool_film_grain">
+                <span class="tool-item-icon">🎞</span>
+                <span>Analog Film Grain</span>
+              </div>
+            </div>
+
+            <!-- 7. ICON & SHEET STUDIO -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
+              <div class="tool-category-header">
+                <span>ICON & SHEET STUDIO</span>
+                <span class="badge badge-cyan">4 Tools</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_icon_sheet_1' ? 'active' : ''}" data-tool="tool_icon_sheet_1">
                 <span class="tool-item-icon">田</span>
-                <span>Icon Sheet 1 (Minimal)</span>
+                <span>Minimal Sheet 1</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_icon_sheet_2' ? 'active' : ''}" data-tool="tool_icon_sheet_2">
                 <span class="tool-item-icon">田</span>
-                <span>Icon Sheet 2 (Marketplace)</span>
+                <span>Marketplace Sheet 2</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_icon_sheet_3' ? 'active' : ''}" data-tool="tool_icon_sheet_3">
                 <span class="tool-item-icon">田</span>
-                <span>Icon Sheet 3 (Presentation)</span>
+                <span>Presentation Sheet 3</span>
               </div>
               <div class="tool-nav-item ${state.activeTool === 'tool_icon_pack' ? 'active' : ''}" data-tool="tool_icon_pack">
                 <span class="tool-item-icon">📦</span>
                 <span>Icon Pack Maker (ZIP)</span>
+              </div>
+            </div>
+
+            <!-- WORKSPACE MODULES -->
+            <div class="tool-category-group" style="border-top:1px solid var(--border-subtle); margin-top:6px;">
+              <div class="tool-category-header">
+                <span>STUDIO WORKSPACES</span>
+                <span class="badge badge-indigo">8 Studios</span>
+              </div>
+              <div class="tool-nav-item ${this.viewMode === 'canvas' ? 'active' : ''}" data-tool="tool_canvas_studio">
+                <span class="tool-item-icon">✏️</span>
+                <span>Canvas & Layers</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_stock_ready">
+                <span class="tool-item-icon">⚡</span>
+                <span>Stock Ready Pipeline</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_batch_studio">
+                <span class="tool-item-icon">⚡</span>
+                <span>Batch Studio (500+)</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_metadata_studio">
+                <span class="tool-item-icon">🏷️</span>
+                <span>Metadata Studio</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_preset_manager">
+                <span class="tool-item-icon">⭐</span>
+                <span>Preset Manager</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_project_manager">
+                <span class="tool-item-icon">📁</span>
+                <span>Project Manager</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_export_center">
+                <span class="tool-item-icon">📦</span>
+                <span>Export Center</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_settings">
+                <span class="tool-item-icon">⚙️</span>
+                <span>Settings & Themes</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_dashboard">
+                <span class="tool-item-icon">📊</span>
+                <span>SaaS Dashboard</span>
+              </div>
+              <div class="tool-nav-item" data-tool="tool_admin">
+                <span class="tool-item-icon">🛡️</span>
+                <span>Admin Console</span>
               </div>
             </div>
           </aside>
@@ -216,12 +339,20 @@ export class StudioView {
                 </div>
               </div>
             ` : ''}
-            <div id="canvas-viewport" class="canvas-viewport-wrapper">
-              <!-- Rendered dynamically -->
+
+            <!-- Canvas Viewport Wrapper -->
+            <div id="canvas-viewport" class="canvas-viewport-wrapper" style="width:100%; height:100%; position:relative;">
+              <!-- Rendered dynamically (either Compare or CanvasEditor) -->
             </div>
 
             <!-- Floating Viewport Controls -->
             <div class="canvas-floating-bar">
+              ${this.viewMode === 'compare' ? `
+                <button class="btn btn-glass btn-sm" id="btn-floating-edit-canvas" style="border-color:var(--accent-secondary); color:var(--accent-secondary); font-weight:700;" title="Send processed result to interactive Canvas Editor">
+                  ✏️ Edit on Canvas
+                </button>
+                <div style="width:1px; height:16px; background:var(--border-medium); margin:0 4px;"></div>
+              ` : ''}
               <button class="btn-icon btn-sm" id="btn-zoom-out" title="Zoom Out">
                 <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
               </button>
@@ -324,16 +455,65 @@ export class StudioView {
     };
 
     // Compare Mode Toggles
-    const setMode = (mode) => {
+    const setCompareSubMode = (mode) => {
       store.setState({ compareMode: mode });
       this.container.querySelector('#btn-mode-slider').className = `btn btn-sm ${mode === 'slider' ? 'btn-primary' : 'btn-glass'}`;
       this.container.querySelector('#btn-mode-split').className = `btn btn-sm ${mode === 'split' ? 'btn-primary' : 'btn-glass'}`;
       this.container.querySelector('#btn-mode-side').className = `btn btn-sm ${mode === 'side-by-side' ? 'btn-primary' : 'btn-glass'}`;
       this.updateCanvasDisplay();
     };
-    this.container.querySelector('#btn-mode-slider').onclick = () => setMode('slider');
-    this.container.querySelector('#btn-mode-split').onclick = () => setMode('split');
-    this.container.querySelector('#btn-mode-side').onclick = () => setMode('side-by-side');
+    this.container.querySelector('#btn-mode-slider').onclick = () => setCompareSubMode('slider');
+    this.container.querySelector('#btn-mode-split').onclick = () => setCompareSubMode('split');
+    this.container.querySelector('#btn-mode-side').onclick = () => setCompareSubMode('side-by-side');
+
+    // Workspace Mode: Compare Mode vs Canvas & Layers Mode
+    const compareToggleBtn = this.container.querySelector('#btn-toggle-compare');
+    const canvasToggleBtn = this.container.querySelector('#btn-toggle-canvas');
+    const subModesWrap = this.container.querySelector('#compare-submodes');
+
+    const switchWorkspaceMode = (mode) => {
+      this.viewMode = mode;
+      if (mode === 'compare') {
+        compareToggleBtn.className = 'btn btn-sm btn-primary';
+        canvasToggleBtn.className = 'btn btn-sm btn-glass';
+        if (subModesWrap) subModesWrap.style.display = 'flex';
+        this.updateCanvasDisplay();
+        this.renderInspector();
+      } else {
+        compareToggleBtn.className = 'btn btn-sm btn-glass';
+        canvasToggleBtn.className = 'btn btn-sm btn-primary';
+        if (subModesWrap) subModesWrap.style.display = 'none';
+        this.renderCanvasEditor();
+      }
+    };
+
+    compareToggleBtn.onclick = () => switchWorkspaceMode('compare');
+    canvasToggleBtn.onclick = () => switchWorkspaceMode('canvas');
+
+    // Floating Edit on Canvas Button (in compare mode)
+    const floatEditCanvasBtn = this.container.querySelector('#btn-floating-edit-canvas');
+    if (floatEditCanvasBtn) {
+      floatEditCanvasBtn.onclick = () => switchWorkspaceMode('canvas');
+    }
+
+    // 1-Click Stock Ready Commercial Pipeline
+    const stockReadyTopBtn = this.container.querySelector('#btn-top-stock-ready');
+    if (stockReadyTopBtn) {
+      stockReadyTopBtn.onclick = () => {
+        const source = this.processedCanvas || store.getState().originalImage;
+        StockReadyWorkflow.openStockReadyModal(source);
+      };
+    }
+
+    // Quick Navigation Icons in Top Navbar
+    const navMetaBtn = this.container.querySelector('#btn-nav-metadata');
+    if (navMetaBtn) navMetaBtn.onclick = () => store.setState({ currentView: 'metadata-studio' });
+
+    const navPresetsBtn = this.container.querySelector('#btn-nav-presets');
+    if (navPresetsBtn) navPresetsBtn.onclick = () => store.setState({ currentView: 'preset-manager' });
+
+    const navSettingsBtn = this.container.querySelector('#btn-nav-settings');
+    if (navSettingsBtn) navSettingsBtn.onclick = () => store.setState({ currentView: 'settings' });
 
     // Save Project
     this.container.querySelector('#btn-save-project').onclick = async () => {
@@ -352,7 +532,9 @@ export class StudioView {
 
     // Export Trigger
     this.container.querySelector('#btn-top-export').onclick = () => {
-      if (this.processedCanvas) {
+      if (this.viewMode === 'canvas' && this.canvasEditor) {
+        store.setState({ currentView: 'export-center' });
+      } else if (this.processedCanvas) {
         ModalManager.openExportModal(this.processedCanvas, this.processedSvg);
       } else {
         toast.error('No processed asset to export yet.');
@@ -368,15 +550,23 @@ export class StudioView {
     // Global Hotkeys Listener
     HotkeysManager.init({
       onUndo: () => {
-        store.undo();
-        this.renderInspector();
-        this.updateProcessing();
+        if (this.viewMode === 'canvas' && this.canvasEditor) {
+          this.canvasEditor.undo();
+        } else {
+          store.undo();
+          this.renderInspector();
+          this.updateProcessing();
+        }
         toast.info('Undo');
       },
       onRedo: () => {
-        store.redo();
-        this.renderInspector();
-        this.updateProcessing();
+        if (this.viewMode === 'canvas' && this.canvasEditor) {
+          this.canvasEditor.redo();
+        } else {
+          store.redo();
+          this.renderInspector();
+          this.updateProcessing();
+        }
         toast.info('Redo');
       },
       onZoomIn: () => {
@@ -420,13 +610,56 @@ export class StudioView {
       });
     };
 
-    // Tool item clicks
+    // Complete 17-Studio Left Sidebar Router
     const toolItems = this.container.querySelectorAll('.tool-nav-item');
     toolItems.forEach(item => {
       item.onclick = () => {
+        const tool = item.getAttribute('data-tool');
+
+        // Studio workspace router
+        if (tool === 'tool_canvas_studio') {
+          switchWorkspaceMode('canvas');
+          toolItems.forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          return;
+        } else if (tool === 'tool_stock_ready') {
+          const source = this.processedCanvas || store.getState().originalImage;
+          StockReadyWorkflow.openStockReadyModal(source);
+          return;
+        } else if (tool === 'tool_batch_studio') {
+          ModalManager.openBatchModal(store.getState().batchAssets || [], store.getState().activeTool, store.getState().params);
+          return;
+        } else if (tool === 'tool_metadata_studio') {
+          store.setState({ currentView: 'metadata-studio' });
+          return;
+        } else if (tool === 'tool_preset_manager') {
+          store.setState({ currentView: 'preset-manager' });
+          return;
+        } else if (tool === 'tool_project_manager') {
+          store.setState({ currentView: 'project-manager' });
+          return;
+        } else if (tool === 'tool_export_center') {
+          store.setState({ currentView: 'export-center' });
+          return;
+        } else if (tool === 'tool_settings') {
+          store.setState({ currentView: 'settings' });
+          return;
+        } else if (tool === 'tool_dashboard') {
+          store.setState({ currentView: 'dashboard' });
+          return;
+        } else if (tool === 'tool_admin') {
+          store.setState({ currentView: 'admin' });
+          return;
+        }
+
+        // Standard tool selection
         toolItems.forEach(i => i.classList.remove('active'));
         item.classList.add('active');
-        const tool = item.getAttribute('data-tool');
+
+        if (this.viewMode === 'canvas') {
+          switchWorkspaceMode('compare');
+        }
+
         store.setState({ activeTool: tool });
         this.renderInspector();
         this.updateProcessing();
@@ -469,6 +702,13 @@ export class StudioView {
    */
   renderInspector() {
     const panel = this.container.querySelector('#studio-panel-right');
+    if (!panel) return;
+
+    if (this.viewMode === 'canvas') {
+      this.renderCanvasInspector(this.canvasEditor ? this.canvasEditor.selectedObjects : []);
+      return;
+    }
+
     const state = store.getState();
     const tool = state.activeTool;
     const p = state.params;
@@ -747,17 +987,18 @@ export class StudioView {
     } else if (tool === 'tool_vector_convert' || tool === 'tool_vector_trace') {
       content = `
         <div class="panel-header">
-          <span class="panel-title">Image → Vector (SVG)</span>
+          <span class="panel-title">Vector Studio (Bézier SVG)</span>
           <span class="badge badge-cyan">2 Credits</span>
         </div>
         <div class="panel-content">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <p style="font-size:0.8rem; color:var(--text-secondary); margin:0;">
-              Traces raster pixels into true scalable SVG &lt;path&gt; vectors.
+              Authentic scalable Bézier vectors with noise reduction, hole preservation & clean geometry.
             </p>
             <span class="badge badge-indigo" id="vector-path-count-badge">Vector Ready</span>
           </div>
 
+          <!-- Presets -->
           <div class="control-group">
             <div class="control-label"><span>✦ Curated Vector Presets</span></div>
             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
@@ -769,22 +1010,69 @@ export class StudioView {
             </div>
           </div>
 
+          <!-- Palette Mode -->
           <div class="control-group">
-            <div class="control-label"><span>Color Quantization</span><span class="control-value">${p.vectorColors} Colors</span></div>
-            <input type="range" class="range-slider" id="param-vec-colors" min="2" max="16" value="${p.vectorColors}" />
+            <div class="control-label"><span>Palette Mode</span></div>
+            <select id="param-vec-palette" style="width:100%;">
+              <option value="original" ${p.vectorPaletteMode === 'original' ? 'selected' : ''}>Original Color Quantization</option>
+              <option value="grayscale" ${p.vectorPaletteMode === 'grayscale' ? 'selected' : ''}>Grayscale Tonal Shades</option>
+              <option value="bw" ${p.vectorPaletteMode === 'bw' ? 'selected' : ''}>Black & White Silhouette (EPS Logo)</option>
+              <option value="custom" ${p.vectorPaletteMode === 'custom' ? 'selected' : ''}>Custom Vibrant Harmony</option>
+            </select>
           </div>
 
+          <!-- Color Quantization -->
+          <div class="control-group">
+            <div class="control-label"><span>Color Quantization</span><span class="control-value">${p.vectorColors} Colors</span></div>
+            <input type="range" class="range-slider" id="param-vec-colors" min="2" max="32" value="${p.vectorColors}" />
+          </div>
+
+          <!-- Curve Smoothness -->
           <div class="control-group">
             <div class="control-label"><span>Curve Smoothness</span><span class="control-value">${p.vectorSmoothness}%</span></div>
             <input type="range" class="range-slider" id="param-vec-smooth" min="0" max="100" value="${p.vectorSmoothness}" />
           </div>
 
+          <!-- Detail Level -->
           <div class="control-group">
             <div class="control-label"><span>Detail Level</span><span class="control-value">${p.vectorDetail}%</span></div>
-            <input type="range" class="range-slider" id="param-vec-detail" min="20" max="95" value="${p.vectorDetail}" />
+            <input type="range" class="range-slider" id="param-vec-detail" min="10" max="100" value="${p.vectorDetail}" />
           </div>
 
-          <div class="control-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;">
+          <!-- Noise Removal Filter -->
+          <div class="control-group">
+            <div class="control-label"><span>Noise Removal Filter</span><span class="control-value">${p.vectorNoiseRemoval || 12}</span></div>
+            <input type="range" class="range-slider" id="param-vec-noise" min="0" max="50" value="${p.vectorNoiseRemoval || 12}" />
+          </div>
+
+          <!-- Small Object Threshold -->
+          <div class="control-group">
+            <div class="control-label"><span>Small Object Elimination</span><span class="control-value">${p.vectorSmallObjectRemoval || 8}px</span></div>
+            <input type="range" class="range-slider" id="param-vec-small-obj" min="0" max="100" value="${p.vectorSmallObjectRemoval || 8}" />
+          </div>
+
+          <!-- Corner Smoothness -->
+          <div class="control-group">
+            <div class="control-label"><span>Corner Smoothness</span><span class="control-value">${p.vectorCornerSmoothness || 45}%</span></div>
+            <input type="range" class="range-slider" id="param-vec-corner" min="0" max="100" value="${p.vectorCornerSmoothness || 45}" />
+          </div>
+
+          <!-- Curve Precision -->
+          <div class="control-group">
+            <div class="control-label"><span>Path Precision</span><span class="control-value">${p.vectorPathPrecision || 2} Decimals</span></div>
+            <input type="range" class="range-slider" id="param-vec-precision" min="1" max="4" value="${p.vectorPathPrecision || 2}" />
+          </div>
+
+          <!-- Hole Preservation & Transparent BG Switches -->
+          <div class="control-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+            <span style="font-size:0.8rem; font-weight:600;">Hole Preservation (evenodd)</span>
+            <label class="switch">
+              <input type="checkbox" id="param-vec-evenodd" ${p.vectorPreserveHoles !== false ? 'checked' : ''} />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="control-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
             <span style="font-size:0.8rem; font-weight:600;">Transparent Background</span>
             <label class="switch">
               <input type="checkbox" id="param-vec-remove-white" ${p.vectorRemoveWhite ? 'checked' : ''} />
@@ -792,7 +1080,17 @@ export class StudioView {
             </label>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:18px;">
+          <!-- Layer Grouping Mode -->
+          <div class="control-group" style="margin-top:10px;">
+            <div class="control-label"><span>Layer Grouping Mode</span></div>
+            <select id="param-vec-layer-mode" style="width:100%;">
+              <option value="color" ${p.vectorLayerMode === 'color' ? 'selected' : ''}>Layer by Color Palette (&lt;g id="color_..."&gt;)</option>
+              <option value="object" ${p.vectorLayerMode === 'object' ? 'selected' : ''}>Layer by Individual Paths (&lt;g id="path_..."&gt;)</option>
+            </select>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:16px;">
             <button class="btn btn-primary btn-sm" id="btn-process-tool">
               Trace Vector
             </button>
@@ -809,15 +1107,34 @@ export class StudioView {
               300 PPI ↓
             </button>
           </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:6px;">
+            <button class="btn btn-glass btn-sm" id="btn-vector-edit-canvas" style="border-color:var(--accent-primary); color:var(--accent-secondary); font-weight:700;" title="Load vector paths into interactive Canvas Editor">
+              ✏️ Edit on Canvas
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-vector-stock-ready" style="box-shadow:0 0 12px rgba(99,102,241,0.4);" title="1-Click 10-Step Stock Ready Commercial Pipeline & ZIP">
+              ⚡ Stock Ready
+            </button>
+          </div>
         </div>
       `;
-    } else if (tool.includes('remove') || tool.includes('transparent')) {
+    } else if (tool === 'tool_bg_custom' || tool.includes('remove') || tool.includes('transparent')) {
       content = `
         <div class="panel-header">
-          <span class="panel-title">Remove Background</span>
+          <span class="panel-title">Background Studio</span>
           <span class="badge badge-green">1 Credit</span>
         </div>
         <div class="panel-content">
+          ${tool === 'tool_bg_custom' ? `
+            <div class="control-group">
+              <div class="control-label"><span>Target Cutout Color</span></div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="color" id="param-bg-custom-color" value="${p.bgCustomColor || '#ffffff'}" class="color-swatch" style="width:36px; height:36px;" />
+                <span style="font-size:0.75rem; color:var(--text-muted);">Color to remove/replace</span>
+              </div>
+            </div>
+          ` : ''}
+
           <div class="control-group">
             <div class="control-label"><span>Color Tolerance</span><span class="control-value">${p.bgTolerance}%</span></div>
             <input type="range" class="range-slider" id="param-bg-tolerance" min="5" max="80" value="${p.bgTolerance}" />
@@ -844,6 +1161,10 @@ export class StudioView {
               300 PPI ↓
             </button>
           </div>
+
+          <button class="btn btn-glass btn-sm" id="btn-bg-edit-canvas" style="width:100%; margin-top:8px; border-color:var(--accent-secondary); color:var(--accent-secondary); font-weight:700;">
+            ✏️ Edit Cutout on Canvas
+          </button>
         </div>
       `;
     } else if (tool.startsWith('tool_icon_sheet')) {
@@ -1007,6 +1328,8 @@ export class StudioView {
           else if (id === 'param-grain-size') labelVal.textContent = `${val}x`;
           else if (id.includes('blur') || id.includes('feather') || id.includes('padding')) labelVal.textContent = `${val}px`;
           else if (id === 'param-vec-colors') labelVal.textContent = `${val} Colors`;
+          else if (id === 'param-vec-precision') labelVal.textContent = `${val} Decimals`;
+          else if (id === 'param-vec-small-obj') labelVal.textContent = `${val}px`;
           else if (id === 'param-sheet-cols') labelVal.textContent = `${val}`;
           else labelVal.textContent = `${val}%`;
         }
@@ -1027,6 +1350,10 @@ export class StudioView {
         else if (id === 'param-vec-colors') store.state.params.vectorColors = val;
         else if (id === 'param-vec-smooth') store.state.params.vectorSmoothness = val;
         else if (id === 'param-vec-detail') store.state.params.vectorDetail = val;
+        else if (id === 'param-vec-noise') store.state.params.vectorNoiseRemoval = val;
+        else if (id === 'param-vec-small-obj') store.state.params.vectorSmallObjectRemoval = val;
+        else if (id === 'param-vec-corner') store.state.params.vectorCornerSmoothness = val;
+        else if (id === 'param-vec-precision') store.state.params.vectorPathPrecision = val;
         else if (id === 'param-bg-tolerance') store.state.params.bgTolerance = val;
         else if (id === 'param-bg-feather') store.state.params.bgFeather = val;
         else if (id === 'param-sheet-cols') store.state.params.sheetColumns = val;
@@ -1046,11 +1373,56 @@ export class StudioView {
       sw.onchange = (e) => {
         const id = e.target.id;
         if (id === 'param-vec-remove-white') store.setParam('vectorRemoveWhite', e.target.checked);
+        if (id === 'param-vec-evenodd') store.setParam('vectorPreserveHoles', e.target.checked);
         if (id === 'param-bg-shadow') store.setParam('bgShadowPreserve', e.target.checked);
         if (id === 'param-sheet-labels') store.setParam('sheetLabels', e.target.checked);
         this.updateProcessing(true);
       };
     });
+
+    // Vector Palette Mode and Layer Mode dropdowns
+    const vecPaletteSel = panel.querySelector('#param-vec-palette');
+    if (vecPaletteSel) {
+      vecPaletteSel.onchange = (e) => {
+        store.setParam('vectorPaletteMode', e.target.value);
+        this.updateProcessing(true);
+      };
+    }
+    const vecLayerSel = panel.querySelector('#param-vec-layer-mode');
+    if (vecLayerSel) {
+      vecLayerSel.onchange = (e) => {
+        store.setParam('vectorLayerMode', e.target.value);
+        this.updateProcessing(true);
+      };
+    }
+
+    // Custom BG color input
+    const bgCustomColorInput = panel.querySelector('#param-bg-custom-color');
+    if (bgCustomColorInput) {
+      bgCustomColorInput.onchange = (e) => {
+        store.setParam('bgCustomColor', e.target.value);
+        this.updateProcessing(true);
+      };
+    }
+
+    // Edit on Canvas buttons
+    const vecEditCanvasBtn = panel.querySelector('#btn-vector-edit-canvas');
+    if (vecEditCanvasBtn) {
+      vecEditCanvasBtn.onclick = () => this.openInCanvasEditor();
+    }
+    const bgEditCanvasBtn = panel.querySelector('#btn-bg-edit-canvas');
+    if (bgEditCanvasBtn) {
+      bgEditCanvasBtn.onclick = () => this.openInCanvasEditor();
+    }
+
+    // Stock Ready Trigger from Inspector
+    const vecStockReadyBtn = panel.querySelector('#btn-vector-stock-ready');
+    if (vecStockReadyBtn) {
+      vecStockReadyBtn.onclick = () => {
+        const source = this.processedCanvas || store.getState().originalImage;
+        StockReadyWorkflow.openStockReadyModal(source);
+      };
+    }
 
     // Buttons
     panel.querySelectorAll('[data-res]').forEach(btn => {
@@ -1326,7 +1698,15 @@ export class StudioView {
         colors: p.vectorColors,
         detail: p.vectorDetail,
         smoothness: p.vectorSmoothness,
-        removeWhiteBg: p.vectorRemoveWhite
+        simplification: p.vectorSimplification || 2,
+        noiseRemoval: p.vectorNoiseRemoval || 12,
+        smallObjectRemoval: p.vectorSmallObjectRemoval || 8,
+        cornerSmoothness: p.vectorCornerSmoothness || 45,
+        pathPrecision: p.vectorPathPrecision || 2,
+        preserveHoles: p.vectorPreserveHoles !== false,
+        removeWhiteBg: p.vectorRemoveWhite,
+        paletteMode: p.vectorPaletteMode || 'original',
+        layerMode: p.vectorLayerMode || 'color'
       });
       outSvg = res.svgString;
 
@@ -1336,9 +1716,32 @@ export class StudioView {
       const ctx = outCanvas.getContext('2d');
       const vImg = new Image();
       const svgBlob = new Blob([outSvg], { type: 'image/svg+xml;charset=utf-8' });
-      vImg.src = URL.createObjectURL(svgBlob);
-      await vImg.decode();
-      ctx.drawImage(vImg, 0, 0);
+      const blobUrl = URL.createObjectURL(svgBlob);
+      vImg.src = blobUrl;
+      try {
+        if (typeof vImg.decode === 'function') {
+          await vImg.decode();
+        } else {
+          await new Promise((resolve, reject) => {
+            vImg.onload = resolve;
+            vImg.onerror = reject;
+          });
+        }
+        ctx.drawImage(vImg, 0, 0);
+      } catch (decErr) {
+        await new Promise((resolve) => {
+          vImg.onload = () => {
+            try { ctx.drawImage(vImg, 0, 0); } catch (e) {}
+            resolve();
+          };
+          vImg.onerror = () => {
+            console.warn('SVG preview fallback to vector paths');
+            resolve();
+          };
+        });
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
 
       // Live update badge in inspector
       const badge = this.container.querySelector('#vector-path-count-badge');
@@ -1384,6 +1787,11 @@ export class StudioView {
   updateCanvasDisplay() {
     const viewport = this.container.querySelector('#canvas-viewport');
     if (!viewport) return;
+
+    if (this.viewMode === 'canvas') {
+      this.renderCanvasEditor();
+      return;
+    }
 
     const state = store.getState();
     const origImg = state.originalImage;
@@ -1533,5 +1941,298 @@ export class StudioView {
         onMove(e.clientX);
       }
     };
+  }
+
+  /**
+   * Switch into full interactive Canvas & Layers Studio mode
+   */
+  openInCanvasEditor() {
+    this.viewMode = 'canvas';
+    const compBtn = this.container.querySelector('#btn-toggle-compare');
+    const canvasBtn = this.container.querySelector('#btn-toggle-canvas');
+    const subModes = this.container.querySelector('#compare-submodes');
+    if (compBtn) compBtn.className = 'btn btn-sm btn-glass';
+    if (canvasBtn) canvasBtn.className = 'btn btn-sm btn-primary';
+    if (subModes) subModes.style.display = 'none';
+
+    this.renderCanvasEditor();
+  }
+
+  /**
+   * Render interactive Canvas Editor with rulers, guides, and layer hierarchy
+   */
+  renderCanvasEditor() {
+    const viewport = this.container.querySelector('#canvas-viewport');
+    if (!viewport) return;
+    viewport.innerHTML = '';
+
+    const origImg = store.getState().originalImage;
+    const w = store.getState().originalWidth || 1200;
+    const h = store.getState().originalHeight || 800;
+
+    if (this.canvasEditor) {
+      this.canvasEditor.destroy();
+    }
+
+    this.canvasEditor = new CanvasEditor(viewport, {
+      width: w,
+      height: h,
+      onSelectionChange: (selected) => {
+        this.renderCanvasInspector(selected);
+      },
+      onLayersChange: (objects) => {
+        if (this.layersPanel) {
+          this.layersPanel.update();
+        }
+      }
+    });
+
+    this.canvasEditor.render();
+
+    // Ingest processed vector or raster into canvas editor
+    if (this.processedSvg) {
+      this.canvasEditor.loadSvgPaths(this.processedSvg);
+    } else if (this.processedCanvas) {
+      this.canvasEditor.loadRasterImage(this.processedCanvas, 'Processed Asset');
+    } else if (origImg) {
+      this.canvasEditor.loadRasterImage(origImg, 'Original Source');
+    }
+
+    this.renderCanvasInspector(this.canvasEditor.selectedObjects);
+  }
+
+  /**
+   * Render Inspector for interactive Canvas Editor
+   */
+  renderCanvasInspector(selectedObjects = []) {
+    const panel = this.container.querySelector('#studio-panel-right');
+    if (!panel) return;
+
+    const count = selectedObjects.length;
+    const first = selectedObjects[0] || null;
+
+    panel.innerHTML = `
+      <div class="panel-header">
+        <span class="panel-title">Canvas & Layers</span>
+        <span class="badge badge-cyan">${count > 0 ? `${count} Selected` : 'Workspace'}</span>
+      </div>
+      <div class="panel-content" style="padding:14px; overflow-y:auto; max-height:calc(100vh - 120px);">
+        <!-- Selection Properties -->
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:8px; padding:12px; margin-bottom:14px;">
+          <div style="font-weight:700; font-size:0.8rem; color:var(--text-primary); margin-bottom:10px; display:flex; justify-content:space-between;">
+            <span>Object Properties</span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${count ? (first.name || first.type) : 'None selected'}</span>
+          </div>
+
+          ${count > 0 ? `
+            <div class="control-group" style="margin-bottom:10px;">
+              <div class="control-label"><span>Fill Color</span></div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="color" id="canvas-obj-fill" class="color-swatch" value="${first.fill && first.fill.startsWith('#') ? first.fill : '#6366f1'}" style="width:34px; height:34px;" />
+                <input type="text" id="canvas-obj-fill-text" value="${first.fill || '#6366f1'}" style="flex:1; font-family:var(--font-mono); font-size:0.75rem;" />
+              </div>
+            </div>
+
+            <div class="control-group" style="margin-bottom:10px;">
+              <div class="control-label"><span>Stroke Color & Width</span><span class="control-value" id="val-canvas-stroke-w">${first.strokeWidth || 0}px</span></div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <input type="color" id="canvas-obj-stroke" class="color-swatch" value="${first.stroke && first.stroke.startsWith('#') ? first.stroke : '#000000'}" style="width:34px; height:34px;" />
+                <input type="range" class="range-slider" id="canvas-obj-stroke-w" min="0" max="24" value="${first.strokeWidth || 0}" style="flex:1;" />
+              </div>
+            </div>
+
+            <div class="control-group" style="margin-bottom:10px;">
+              <div class="control-label"><span>Opacity</span><span class="control-value" id="val-canvas-opacity">${Math.round((first.opacity ?? 1) * 100)}%</span></div>
+              <input type="range" class="range-slider" id="canvas-obj-opacity" min="5" max="100" value="${Math.round((first.opacity ?? 1) * 100)}" />
+            </div>
+
+            <!-- Alignment controls -->
+            <div class="control-group" style="margin-bottom:10px;">
+              <div class="control-label"><span>Align & Distribute</span></div>
+              <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:4px; margin-bottom:6px;">
+                <button class="btn btn-secondary btn-sm" id="btn-align-left" title="Align Left">⇤</button>
+                <button class="btn btn-secondary btn-sm" id="btn-align-center" title="Align Center">⇥⇤</button>
+                <button class="btn btn-secondary btn-sm" id="btn-align-right" title="Align Right">⇥</button>
+                <button class="btn btn-secondary btn-sm" id="btn-align-top" title="Align Top">⤒</button>
+                <button class="btn btn-secondary btn-sm" id="btn-align-middle" title="Align Middle">↕</button>
+                <button class="btn btn-secondary btn-sm" id="btn-align-bottom" title="Align Bottom">⤓</button>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+                <button class="btn btn-secondary btn-sm" id="btn-dist-h" title="Distribute Horizontally">Distribute ↔</button>
+                <button class="btn btn-secondary btn-sm" id="btn-dist-v" title="Distribute Vertically">Distribute ↕</button>
+              </div>
+            </div>
+
+            <!-- Layer Ordering & Grouping -->
+            <div class="control-group" style="margin-bottom:12px;">
+              <div class="control-label"><span>Layer Order & Grouping</span></div>
+              <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; margin-bottom:6px;">
+                <button class="btn btn-secondary btn-sm" id="btn-order-front" title="Bring to Front">⇈</button>
+                <button class="btn btn-secondary btn-sm" id="btn-order-forward" title="Bring Forward">↑</button>
+                <button class="btn btn-secondary btn-sm" id="btn-order-backward" title="Send Backward">↓</button>
+                <button class="btn btn-secondary btn-sm" id="btn-order-back" title="Send to Back">⇊</button>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+                <button class="btn btn-secondary btn-sm" id="btn-canvas-group">Group</button>
+                <button class="btn btn-secondary btn-sm" id="btn-canvas-ungroup">Ungroup</button>
+              </div>
+            </div>
+
+            <button class="btn btn-secondary btn-sm" id="btn-canvas-del" style="width:100%; color:var(--status-danger); border-color:rgba(239,68,68,0.3);">
+              Delete Selected Object(s)
+            </button>
+          ` : `
+            <div style="font-size:0.75rem; color:var(--text-muted); text-align:center; padding:12px 0;">
+              Click on any path or element on the canvas to inspect, transform, recolor, and align.
+            </div>
+          `}
+        </div>
+
+        <!-- Layers Panel Mount -->
+        <div id="layers-panel-mount"></div>
+
+        <!-- Canvas Export Actions -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:16px;">
+          <button class="btn btn-primary btn-sm" id="btn-canvas-export-svg">
+            Export SVG
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-canvas-export-300">
+            Export 300 PPI
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Mount Layers Panel inside #layers-panel-mount
+    const layersMount = panel.querySelector('#layers-panel-mount');
+    if (layersMount && this.canvasEditor) {
+      if (this.layersPanel) this.layersPanel.destroy();
+      this.layersPanel = new LayersPanel(layersMount, this.canvasEditor);
+      this.layersPanel.render();
+    }
+
+    this.bindCanvasInspectorEvents(first);
+  }
+
+  bindCanvasInspectorEvents(first) {
+    const panel = this.container.querySelector('#studio-panel-right');
+    if (!panel || !this.canvasEditor) return;
+
+    // Fill Color
+    const fillInput = panel.querySelector('#canvas-obj-fill');
+    const fillText = panel.querySelector('#canvas-obj-fill-text');
+    if (fillInput && first) {
+      fillInput.oninput = (e) => {
+        first.fill = e.target.value;
+        if (fillText) fillText.value = e.target.value;
+        this.canvasEditor.render();
+      };
+      if (fillText) {
+        fillText.onchange = (e) => {
+          first.fill = e.target.value;
+          fillInput.value = e.target.value;
+          this.canvasEditor.render();
+        };
+      }
+    }
+
+    // Stroke
+    const strokeInput = panel.querySelector('#canvas-obj-stroke');
+    const strokeW = panel.querySelector('#canvas-obj-stroke-w');
+    if (strokeInput && strokeW && first) {
+      strokeInput.oninput = (e) => {
+        first.stroke = e.target.value;
+        this.canvasEditor.render();
+      };
+      strokeW.oninput = (e) => {
+        first.strokeWidth = parseInt(e.target.value, 10);
+        const lbl = panel.querySelector('#val-canvas-stroke-w');
+        if (lbl) lbl.textContent = `${first.strokeWidth}px`;
+        this.canvasEditor.render();
+      };
+    }
+
+    // Opacity
+    const opacityInput = panel.querySelector('#canvas-obj-opacity');
+    if (opacityInput && first) {
+      opacityInput.oninput = (e) => {
+        first.opacity = parseInt(e.target.value, 10) / 100;
+        const lbl = panel.querySelector('#val-canvas-opacity');
+        if (lbl) lbl.textContent = `${Math.round(first.opacity * 100)}%`;
+        this.canvasEditor.render();
+      };
+    }
+
+    // Alignment
+    const aLeft = panel.querySelector('#btn-align-left');
+    if (aLeft) aLeft.onclick = () => this.canvasEditor.alignSelected('left');
+    const aCenter = panel.querySelector('#btn-align-center');
+    if (aCenter) aCenter.onclick = () => this.canvasEditor.alignSelected('center');
+    const aRight = panel.querySelector('#btn-align-right');
+    if (aRight) aRight.onclick = () => this.canvasEditor.alignSelected('right');
+    const aTop = panel.querySelector('#btn-align-top');
+    if (aTop) aTop.onclick = () => this.canvasEditor.alignSelected('top');
+    const aMiddle = panel.querySelector('#btn-align-middle');
+    if (aMiddle) aMiddle.onclick = () => this.canvasEditor.alignSelected('middle');
+    const aBottom = panel.querySelector('#btn-align-bottom');
+    if (aBottom) aBottom.onclick = () => this.canvasEditor.alignSelected('bottom');
+
+    // Distribute
+    const dH = panel.querySelector('#btn-dist-h');
+    if (dH) dH.onclick = () => this.canvasEditor.distributeSelected('horizontal');
+    const dV = panel.querySelector('#btn-dist-v');
+    if (dV) dV.onclick = () => this.canvasEditor.distributeSelected('vertical');
+
+    // Layer Order
+    const oFront = panel.querySelector('#btn-order-front');
+    if (oFront) oFront.onclick = () => this.canvasEditor.moveSelectedOrder('front');
+    const oForward = panel.querySelector('#btn-order-forward');
+    if (oForward) oForward.onclick = () => this.canvasEditor.moveSelectedOrder('forward');
+    const oBackward = panel.querySelector('#btn-order-backward');
+    if (oBackward) oBackward.onclick = () => this.canvasEditor.moveSelectedOrder('backward');
+    const oBack = panel.querySelector('#btn-order-back');
+    if (oBack) oBack.onclick = () => this.canvasEditor.moveSelectedOrder('back');
+
+    // Group / Ungroup / Delete
+    const cGroup = panel.querySelector('#btn-canvas-group');
+    if (cGroup) cGroup.onclick = () => this.canvasEditor.groupSelected();
+    const cUngroup = panel.querySelector('#btn-canvas-ungroup');
+    if (cUngroup) cUngroup.onclick = () => this.canvasEditor.ungroupSelected();
+    const cDel = panel.querySelector('#btn-canvas-del');
+    if (cDel) cDel.onclick = () => this.canvasEditor.deleteSelected();
+
+    // Canvas SVG Export
+    const expSvgBtn = panel.querySelector('#btn-canvas-export-svg');
+    if (expSvgBtn) {
+      expSvgBtn.onclick = () => {
+        const svg = this.canvasEditor.exportSvg();
+        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `creativeforge-canvas-${Date.now()}.svg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success('Exported Canvas SVG!');
+      };
+    }
+
+    // Canvas 300 PPI Export
+    const exp300Btn = panel.querySelector('#btn-canvas-export-300');
+    if (exp300Btn) {
+      exp300Btn.onclick = async () => {
+        const highResCanvas = this.canvasEditor.exportCanvas(4);
+        const blob = await PpiWriter.exportWithPpi(highResCanvas, 'png', 300);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `creativeforge-canvas-300ppi-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success('Exported 300 PPI Canvas PNG!');
+      };
+    }
   }
 }

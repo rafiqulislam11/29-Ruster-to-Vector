@@ -43,7 +43,9 @@ class ToastManager {
       item.style.opacity = '0';
       item.style.transform = 'translateY(10px)';
       item.style.transition = 'all 0.3s ease';
-      setTimeout(() => item.remove(), 300);
+      setTimeout(() => {
+        if (typeof item.remove === 'function') item.remove();
+      }, 300);
     }, duration);
   }
 

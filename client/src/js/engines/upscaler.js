@@ -1,7 +1,8 @@
 /**
- * CreativeForge AI — 300 PPI Image Upscaling Engine
- * Multi-scale resolution refinement (2K, 4K, 6K, 8K, and 300 PPI Print Master)
- * with high-frequency unsharp masking, edge-directed interpolation, and noise reduction.
+ * Creative Vector Studio — Multi-Scale AI Image Upscaler Engine
+ * Supports 2x, 4x, 6x, 8x, custom width/height, and 300 PPI Print Master.
+ * Integrates high-frequency unsharp masking, edge enhancement,
+ * noise reduction, texture preservation, and artifact suppression.
  */
 
 export class ImageUpscalerEngine {
@@ -14,9 +15,9 @@ export class ImageUpscalerEngine {
   };
 
   /**
-   * Upscale image to target resolution with enhancement filters
+   * Upscale image to target resolution or scale factor with enhancement filters
    * @param {HTMLImageElement|HTMLCanvasElement} source
-   * @param {string} targetTier '2K' | '4K' | '6K' | '8K' | '300PPI'
+   * @param {string} targetTier '2K' | '4K' | '6K' | '8K' | '300PPI' | '2x' | '4x' | '6x' | '8x' | 'custom'
    * @param {Object} options
    * @returns {HTMLCanvasElement}
    */
@@ -25,23 +26,39 @@ export class ImageUpscalerEngine {
       sharpness = 75,
       detailEnhancement = 60,
       noiseReduction = 30,
+      edgeEnhancement = 50,
       texturePreservation = 80,
-      artifactReduction = 40
+      artifactReduction = 40,
+      customWidth = null,
+      customHeight = null
     } = options;
 
     const origW = source.naturalWidth || source.width || 1280;
     const origH = source.naturalHeight || source.height || 720;
     const aspect = origW / origH;
 
-    const targetSpec = this.resolutions[targetTier] || this.resolutions['4K'];
     let outW, outH;
 
-    if (aspect >= 1) {
-      outW = targetSpec.width;
-      outH = Math.round(targetSpec.width / aspect);
+    if (targetTier === 'custom' && customWidth && customHeight) {
+      outW = Math.round(customWidth);
+      outH = Math.round(customHeight);
+    } else if (targetTier === '2x') {
+      outW = origW * 2; outH = origH * 2;
+    } else if (targetTier === '4x') {
+      outW = origW * 4; outH = origH * 4;
+    } else if (targetTier === '6x') {
+      outW = origW * 6; outH = origH * 6;
+    } else if (targetTier === '8x') {
+      outW = origW * 8; outH = origH * 8;
     } else {
-      outH = targetSpec.height;
-      outW = Math.round(targetSpec.height * aspect);
+      const targetSpec = this.resolutions[targetTier] || this.resolutions['4K'];
+      if (aspect >= 1) {
+        outW = targetSpec.width;
+        outH = Math.round(targetSpec.width / aspect);
+      } else {
+        outH = targetSpec.height;
+        outW = Math.round(targetSpec.height * aspect);
+      }
     }
 
     // Step 1: Progressive multi-step bicubic scaling
@@ -76,25 +93,30 @@ export class ImageUpscalerEngine {
     ctx.drawImage(curCanvas, 0, 0, outW, outH);
 
     // Step 2: High-Frequency Unsharp Mask / Detail Enhancement
-    if (sharpness > 0 || detailEnhancement > 0) {
-      this.applyUnsharpMask(ctx, outW, outH, sharpness, detailEnhancement);
+    if (sharpness > 0 || detailEnhancement > 0 || edgeEnhancement > 0) {
+      this.applyUnsharpMask(ctx, outW, outH, sharpness, detailEnhancement, edgeEnhancement);
+    }
+
+    // Step 3: Noise & Artifact reduction if configured
+    if (artifactReduction > 20 || noiseReduction > 20) {
+      this.applyNoiseArtifactSuppression(ctx, outW, outH, noiseReduction, artifactReduction);
     }
 
     return finalCanvas;
   }
 
   /**
-   * High-pass sharpening convolution
+   * High-pass sharpening & edge convolution
    */
-  static applyUnsharpMask(ctx, w, h, sharpness, detail) {
+  static applyUnsharpMask(ctx, w, h, sharpness, detail, edgeEnhancement) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
 
-    const strength = (sharpness / 100) * 0.7 + (detail / 100) * 0.3;
+    const strength = (sharpness / 100) * 0.6 + (detail / 100) * 0.25 + (edgeEnhancement / 100) * 0.15;
     const center = 1 + 4 * strength;
     const edge = -strength;
 
-    const step = 2;
+    const step = 2; // Performance optimization for large 4K/8K canvases
     for (let y = 1; y < h - 1; y += step) {
       const rowOffset = y * w;
       for (let x = 1; x < w - 1; x += step) {
@@ -114,16 +136,49 @@ export class ImageUpscalerEngine {
   }
 
   /**
-   * Calculate physical print dimensions in inches and cm at 300 PPI
+   * Noise & compression artifact suppression
+   */
+  static applyNoiseArtifactSuppression(ctx, w, h, noiseRed, artifactRed) {
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const blend = ((noiseRed + artifactRed) / 200) * 0.2;
+
+    for (let y = 1; y < h - 1; y += 3) {
+      const row = y * w;
+      for (let x = 1; x < w - 1; x += 3) {
+        const idx = (row + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const avgNeighbor = (
+            data[((y - 1) * w + x) * 4 + c] +
+            data[((y + 1) * w + x) * 4 + c] +
+            data[(row + x - 1) * 4 + c] +
+            data[(row + x + 1) * 4 + c]
+          ) >> 2;
+          data[idx + c] = Math.round(data[idx + c] * (1 - blend) + avgNeighbor * blend);
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  /**
+   * Calculate physical print dimensions in inches and cm at given PPI
    */
   static getPrintDimensions(width, height, ppi = 300) {
     const inchesW = (width / ppi).toFixed(1);
     const inchesH = (height / ppi).toFixed(1);
     const cmW = ((width / ppi) * 2.54).toFixed(1);
     const cmH = ((height / ppi) * 2.54).toFixed(1);
+    const mmW = Math.round((width / ppi) * 25.4);
+    const mmH = Math.round((height / ppi) * 25.4);
+    const estimatedMb = ((width * height * 3) / (1024 * 1024) * 0.35).toFixed(1);
+
     return {
       inches: `${inchesW}" × ${inchesH}"`,
-      cm: `${cmW} × ${cmH} cm`
+      cm: `${cmW} × ${cmH} cm`,
+      mm: `${mmW} × ${mmH} mm`,
+      estimatedMb: `${estimatedMb} MB`,
+      aspectRatio: (width / height).toFixed(2)
     };
   }
 }

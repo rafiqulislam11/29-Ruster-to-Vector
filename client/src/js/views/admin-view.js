@@ -13,6 +13,7 @@ export class AdminView {
     this.users = [];
     this.tools = [];
     this.currentTab = 'overview';
+    this.maintenanceMode = false;
   }
 
   async loadData() {
@@ -22,6 +23,8 @@ export class AdminView {
       this.users = usersRes.users || [];
       const toolsRes = await api.getAdminTools();
       this.tools = toolsRes.tools || [];
+      const settingsRes = await api.getSettings().catch(() => ({ settings: {} }));
+      this.maintenanceMode = Boolean(settingsRes.settings?.maintenance_mode);
     } catch (err) {
       console.warn('Admin fetch notice:', err);
     }
@@ -61,7 +64,12 @@ export class AdminView {
             <div style="flex:1;">
               <strong>Admin Mode Active:</strong> You have system-level permissions to configure credits, enable/disable tools, trigger automated backups, and inspect the real-time background job queue.
             </div>
-            <button class="btn btn-secondary btn-sm" id="btn-trigger-backup">Trigger Backup Now</button>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm ${this.maintenanceMode ? 'btn-danger' : 'btn-secondary'}" id="btn-toggle-maintenance">
+                ${this.maintenanceMode ? '⚠️ Maintenance: ON' : '🛡 Maintenance: OFF'}
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btn-trigger-backup">Trigger Backup Now</button>
+            </div>
           </div>
 
           <!-- Overview Stats -->
@@ -212,6 +220,22 @@ export class AdminView {
           toast.success(`Backup created: ${res.backup.filename} (${res.backup.size_kb} KB)`);
         } catch (e) {
           toast.error('Failed to trigger backup');
+        }
+      };
+    }
+
+    // Toggle Maintenance Mode
+    const maintBtn = this.container.querySelector('#btn-toggle-maintenance');
+    if (maintBtn) {
+      maintBtn.onclick = async () => {
+        const nextState = !this.maintenanceMode;
+        try {
+          await api.updateSettings({ maintenance_mode: nextState });
+          this.maintenanceMode = nextState;
+          toast.info(`Maintenance Mode turned ${nextState ? 'ON' : 'OFF'}`);
+          this.render();
+        } catch (e) {
+          toast.error('Failed to update maintenance mode: ' + e.message);
         }
       };
     }

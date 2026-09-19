@@ -74,7 +74,7 @@ class JobQueue extends EventEmitter {
         });
 
         // Record usage
-        const toolConfig = db.findOne('tool_configs', t => t.name.toLowerCase().includes(job.tool.toLowerCase())) || { credit_cost: 1 };
+        const toolConfig = db.findOne('tool_configs', t => t.id === job.tool || t.id.includes(job.tool) || (t.name && t.name.toLowerCase().includes(job.tool.toLowerCase()))) || { credit_cost: 1 };
         db.insert('usage', {
           user_id: job.user_id,
           tool: job.tool,

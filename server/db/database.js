@@ -62,6 +62,83 @@ const initialSchema = {
   assets: [],
   processing_jobs: [],
   exports: [],
+  presets: [
+    {
+      id: 'preset_adobe_stock',
+      name: 'Adobe Stock Vector',
+      category: 'vector',
+      description: 'Clean closed contours, no tiny speckles, closed paths ready for stock submissions.',
+      params: {
+        vectorColors: 12,
+        vectorDetail: 80,
+        vectorSmoothness: 70,
+        vectorSimplification: 2,
+        vectorNoiseRemoval: 20,
+        vectorSmallObjectRemoval: 15,
+        vectorRemoveWhite: true,
+        vectorFillMode: 'fill',
+        vectorLayerMode: 'color'
+      },
+      created_at: new Date('2026-01-01').toISOString()
+    },
+    {
+      id: 'preset_logo_vector',
+      name: 'Logo Vector',
+      category: 'vector',
+      description: 'Ultra-crisp geometric contours, sharp corner preservation, minimal anchor points.',
+      params: {
+        vectorColors: 6,
+        vectorDetail: 85,
+        vectorSmoothness: 80,
+        vectorSimplification: 3,
+        vectorNoiseRemoval: 25,
+        vectorCornerSmoothness: 30,
+        vectorFillMode: 'fill',
+        vectorLayerMode: 'color'
+      },
+      created_at: new Date('2026-01-01').toISOString()
+    },
+    {
+      id: 'preset_print_300',
+      name: 'Print 300 PPI Master',
+      category: 'upscale',
+      description: 'High-density unsharp masking and detail enhancement for fine art printing.',
+      params: {
+        upscaleResolution: '300PPI',
+        upscaleSharpness: 80,
+        upscaleDetail: 70,
+        upscaleNoiseReduction: 25
+      },
+      created_at: new Date('2026-01-01').toISOString()
+    }
+  ],
+  metadata: [],
+  credit_transactions: [
+    {
+      id: 'tx_init_1',
+      user_id: 'usr_pro',
+      amount: 500,
+      type: 'monthly_grant',
+      description: 'Professional Plan Monthly Credits',
+      timestamp: new Date().toISOString()
+    }
+  ],
+  settings: {
+    maintenance_mode: false,
+    default_ppi: 300,
+    default_export_format: 'svg',
+    max_batch_size: 500,
+    api_rate_limit: 100
+  },
+  history: [],
+  audit_logs: [
+    {
+      id: 'log_init',
+      action: 'SYSTEM_STARTUP',
+      details: 'Creative Vector Studio Database Initialized',
+      timestamp: new Date().toISOString()
+    }
+  ],
   subscriptions: [
     {
       id: 'sub_admin',
@@ -165,11 +242,16 @@ class Database {
       if (fs.existsSync(this.dbPath)) {
         const raw = fs.readFileSync(this.dbPath, 'utf8');
         this.data = JSON.parse(raw);
-        // Ensure all collections exist
+        // Automatic migration: ensure all collections exist
+        let modified = false;
         for (const key of Object.keys(initialSchema)) {
           if (!this.data[key]) {
             this.data[key] = initialSchema[key];
+            modified = true;
           }
+        }
+        if (modified) {
+          this.save();
         }
       } else {
         this.data = JSON.parse(JSON.stringify(initialSchema));

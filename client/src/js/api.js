@@ -176,6 +176,46 @@ class ApiClient {
     return this.request('/api/admin/backup', { method: 'POST' });
   }
 
+  // Studios, Presets, Metadata & Settings
+  async getSettings() {
+    return this.request('/api/settings');
+  }
+
+  async updateSettings(settings) {
+    return this.request('/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings)
+    });
+  }
+
+  async getPresets() {
+    return this.request('/api/presets');
+  }
+
+  async savePreset(preset) {
+    return this.request('/api/presets', {
+      method: 'POST',
+      body: JSON.stringify(preset)
+    });
+  }
+
+  async deletePreset(id) {
+    return this.request(`/api/presets/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async getMetadataList() {
+    return this.request('/api/metadata');
+  }
+
+  async saveMetadata(metadata) {
+    return this.request('/api/metadata', {
+      method: 'POST',
+      body: JSON.stringify(metadata)
+    });
+  }
+
   async getHealth() {
     return this.request('/api/health');
   }
